@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flappy — Game Hub</title>
+<meta name="description" content="Play Flappy free online. One button, endless pipes — tap or press space to flap. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐤</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🐤</div>
+    <div class="grow">
+      <h1>Flappy</h1>
+      <p>One button. Infinite pipes. Tap to flap through the gaps and chase your longest flight — gravity is not on your side.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/flappy.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
+      <button class="btn btn-ghost btn-sm" id="pauseBtn">⏸ Pause</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Score <b id="score">0</b></div>
+    <div class="chip">Best <b id="best">0</b></div>
+    <div class="chip">Pipes <b id="pipes">0</b></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="cv" width="480" height="640"></canvas>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🐤</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Press <kbd>Space</kbd>, click, or tap to flap. Thread the bird through every pipe — touch one and it's over.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start game</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <span><kbd>Space</kbd> / <kbd>↑</kbd> / click / tap to flap</span>
+    <span><kbd>P</kbd> pause</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const $ = id => document.getElementById(id);
+  const overlay = $('overlay'), ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+
+  const GRAV = 0.42, FLAP = -7.6, GAP = 158, PIPE_W = 68, SPACING = 210;
+  let bird, pipes, score, best, alive, paused, started, raf, groundX;
+
+  best = +(localStorage.getItem('gh.flappy.best') || 0);
+  $('best').textContent = best;
+
+  function reset() {
+    bird = {x: 118, y: H / 2 - 20, vy: 0, r: 15, rot: 0};
+    pipes = []; score = 0; alive = true; paused = false; started = false; groundX = 0;
+    for (let i = 0; i < 3; i++) pipes.push(makePipe(W + 140 + i * SPACING));
+    updateHud();
+    draw();
+  }
+
+  function makePipe(x) {
+    const top = 70 + Math.random() * (H - 260 - GAP);
+    return {x, topH: top, gapY: top + GAP, passed: false};
+  }
+
+  function updateHud() {
+    $('score').textContent = score;
+    $('best').textContent = best;
+    $('pipes').textContent = score;
+  }
+
+  function flap() {
+    if (!alive || paused) return;
+    bird.vy = FLAP;
+  }
+
+  function step() {
+    if (!alive || paused || !started) return;
+
+    bird.vy += GRAV;
+    bird.y += bird.vy;
+    bird.rot = Math.max(-.5, Math.min(1.1, bird.vy * .075));
+
+    const speed = 2.6 + Math.min(2.2, score * .07);
+    for (const p of pipes) p.x -= speed;
+    groundX = (groundX - speed) % 40;
+
+    if (pipes.length && pipes[0].x + PIPE_W < -10) {
+      pipes.shift();
+      pipes.push(makePipe(pipes[pipes.length - 1].x + SPACING));
+    }
+
+    for (const p of pipes) {
+      if (!p.passed && p.x + PIPE_W < bird.x) {
+        p.passed = true;
+        score++;
+        if (score > best) { best = score; localStorage.setItem('gh.flappy.best', best); }
+        updateHud();
+      }
+      if (bird.x + bird.r > p.x && bird.x - bird.r < p.x + PIPE_W) {
+        if (bird.y - bird.r < p.topH || bird.y + bird.r > p.gapY) return die();
+      }
+    }
+
+    if (bird.y + bird.r > H - 46 || bird.y - bird.r < 0) return die();
+    draw();
+  }
+
+  function die() {
+    alive = false;
+    ovIco.textContent = '💥';
+    ovTitle.textContent = 'Game over';
+    ovText.textContent = 'You passed ' + score + ' pipe' + (score === 1 ? '' : 's') + '.' + (score >= best && score > 0 ? ' New high score!' : '');
+    startBtn.textContent = '↻ Play again';
+    overlay.classList.add('show');
+    draw();
+  }
+
+  function start() {
+    reset();
+    overlay.classList.remove('show');
+    started = true;
+    flap();
+  }
+
+  function togglePause() {
+    if (!alive || !started) return;
+    paused = !paused;
+    $('pauseBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
+    if (paused) {
+      ovIco.textContent = '⏸️'; ovTitle.textContent = 'Paused'; ovText.textContent = 'Floating in mid-air. Resume whenever.';
+      startBtn.textContent = '▶ Resume';
+      overlay.classList.add('show');
+    } else overlay.classList.remove('show');
+  }
+
+  function draw() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0a1424'); g.addColorStop(.6, '#122036'); g.addColorStop(1, '#0d1626');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(255,255,255,.05)';
+    for (let i = 0; i < 26; i++) {
+      const x = (i * 97) % W, y = (i * 61) % (H - 120);
+      ctx.fillRect(x, y, 2, 2);
+    }
+
+    for (const p of pipes) {
+      pipe(p.x, 0, p.topH, true);
+      pipe(p.x, p.gapY, H - p.gapY - 46, false);
+    }
+
+    ctx.fillStyle = '#1b2740';
+    ctx.fillRect(0, H - 46, W, 46);
+    ctx.fillStyle = '#22e3a3';
+    ctx.fillRect(0, H - 46, W, 4);
+    ctx.fillStyle = 'rgba(34,227,163,.16)';
+    for (let i = -1; i < 15; i++) ctx.fillRect(groundX + i * 40, H - 40, 22, 4);
+
+    ctx.save();
+    ctx.translate(bird.x, bird.y);
+    ctx.rotate(bird.rot);
+    ctx.fillStyle = '#ffd23f';
+    ctx.beginPath(); ctx.ellipse(0, 0, 17, 14, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ff8f5d';
+    ctx.beginPath(); ctx.moveTo(13, -2); ctx.lineTo(26, 2); ctx.lineTo(13, 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(5, -5, 5.5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#05070c';
+    ctx.beginPath(); ctx.arc(7, -5, 2.6, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ff5d8f';
+    ctx.beginPath(); ctx.ellipse(-6, 5, 8, 5, -.4, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  function pipe(x, y, h, isTop) {
+    if (h <= 0) return;
+    const grad = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
+    grad.addColorStop(0, '#8b5cf6'); grad.addColorStop(1, '#6d3ff5');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, PIPE_W, h);
+    ctx.fillStyle = 'rgba(255,255,255,.22)';
+    ctx.fillRect(x + 6, y, 6, h);
+    ctx.fillStyle = '#a78bfa';
+    ctx.fillRect(x - 6, isTop ? y + h - 22 : y, PIPE_W + 12, 22);
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.fillRect(x - 6, isTop ? y + h - 6 : y + 16, PIPE_W + 12, 6);
+  }
+
+  function onAction(e) {
+    if (e.type === 'keydown' && ![' ', 'arrowup', 'w'].includes(e.key.toLowerCase())) return;
+    if (e.type === 'keydown') e.preventDefault();
+    if (!alive || !started) { start(); return; }
+    if (paused) return;
+    flap();
+  }
+
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'p') { e.preventDefault(); togglePause(); return; }
+    onAction(e);
+  });
+  cv.addEventListener('mousedown', onAction);
+  cv.addEventListener('touchstart', e => { e.preventDefault(); onAction(e); }, {passive: false});
+
+  function loop() { step(); raf = requestAnimationFrame(loop); }
+
+  startBtn.addEventListener('click', () => {
+    if (!alive || !started) start();
+    else togglePause();
+  });
+  $('restartBtn').addEventListener('click', start);
+  $('pauseBtn').addEventListener('click', togglePause);
+
+  reset();
+  loop();
+})();
+</script>
+
+</body>
+</html>

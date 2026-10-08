@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory Match — Game Hub</title>
+<meta name="description" content="Play Memory Match free online. Flip cards, find every pair against the clock, across four difficulty grids. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🃏</div>
+    <div class="grow">
+      <h1>Memory Match</h1>
+      <p>Flip two cards at a time and memorise where everything sits. Clear the board with as few moves and as little time as possible.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/memory.zip" download>⬇ Download</a>
+      <button class="btn btn-primary btn-sm" id="newBtn">↻ New board</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Pairs <b id="pairs">0/8</b></div>
+    <div class="chip">Moves <b id="moves">0</b></div>
+    <div class="chip">Time <b id="time">0:00</b></div>
+    <div class="chip">Best <b id="best">—</b></div>
+    <div class="chip">Difficulty
+      <select id="diff" style="background:var(--surface-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:3px 6px;font:inherit;font-size:13px;margin-left:4px">
+        <option value="4">4×4</option>
+        <option value="6">6×6</option>
+        <option value="8">8×8</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="board-wrap">
+      <div class="mem-grid" id="grid"></div>
+    </div>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🃏</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Click two cards to flip them. Match a pair to keep going — clear the board to set a time.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <span>🖱️ Click or tap cards to flip</span>
+    <span><kbd>N</kbd> new board</span>
+    <span>Matched pairs stay face-up</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const grid = $('grid'), overlay = $('overlay');
+  const ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+
+  const EMOJI = ['🍎','🚀','🎧','🌵','🎲','🦊','💎','🌙','🍕','🎸','🐙','⚡','🍀','🧸','🦋','🌈','🦕','🎯','🥤','🪐','🐳','🧊','🍩','🐝','🕹️','🔑','🧲','🛰️','🪁','🎭','🪣','🧩'];
+  let size = 4, deck = [], flipped = [], matched = 0, moves = 0, running = false, locked = false;
+  let seconds = 0, timer = null, started = false;
+
+  function key() { return 'gh.memory.' + size + '.best'; }
+  function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+  function showBest() {
+    const b = JSON.parse(localStorage.getItem(key()) || 'null');
+    $('best').textContent = b ? (b.time + ' · ' + b.moves + 'm') : '—';
+  }
+
+  function build() {
+    clearInterval(timer);
+    const pairs = (size * size) / 2;
+    if (pairs > EMOJI.length) throw new Error('Not enough emoji for ' + size + 'x' + size);
+    const picks = EMOJI.slice(0, pairs);
+    deck = [...picks, ...picks].map(e => ({e, id: Math.random()}));
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    flipped = []; matched = 0; moves = 0; seconds = 0; running = false; locked = false;
+    $('moves').textContent = 0;
+    $('time').textContent = '0:00';
+    $('pairs').textContent = '0/' + pairs;
+    showBest();
+
+    const track = `repeat(${size}, 1fr)`;
+    grid.style.gridTemplateColumns = track;
+    grid.style.gridTemplateRows = track;
+    grid.innerHTML = '';
+    deck.forEach((card, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'mem-card';
+      btn.dataset.i = i;
+      btn.setAttribute('aria-label', 'Hidden card ' + (i + 1));
+      btn.innerHTML = `<div class="mem-inner"><div class="mem-face mem-back">?</div><div class="mem-face mem-front">${card.e}</div></div>`;
+      btn.addEventListener('click', () => flip(i, btn));
+      grid.appendChild(btn);
+    });
+  }
+
+  function tick() {
+    seconds++;
+    $('time').textContent = fmt(seconds);
+  }
+
+  function startClock() {
+    if (running) return;
+    running = true;
+    timer = setInterval(tick, 1000);
+  }
+
+  function flip(i, btn) {
+    if (locked || btn.classList.contains('flipped') || btn.classList.contains('matched')) return;
+    if (!started) return;
+    startClock();
+    btn.classList.add('flipped');
+    flipped.push({i, btn});
+
+    if (flipped.length === 2) {
+      moves++;
+      $('moves').textContent = moves;
+      locked = true;
+      const [a, b] = flipped;
+      if (deck[a.i].e === deck[b.i].e) {
+        setTimeout(() => {
+          a.btn.classList.add('matched');
+          b.btn.classList.add('matched');
+          a.btn.classList.remove('flipped');
+          b.btn.classList.remove('flipped');
+          flipped = []; locked = false;
+          matched++;
+          $('pairs').textContent = matched + '/' + (deck.length / 2);
+          if (matched === deck.length / 2) win();
+        }, 380);
+      } else {
+        setTimeout(() => {
+          a.btn.classList.remove('flipped');
+          b.btn.classList.remove('flipped');
+          flipped = []; locked = false;
+        }, 760);
+      }
+    }
+  }
+
+  function win() {
+    running = false;
+    clearInterval(timer);
+    const prev = JSON.parse(localStorage.getItem(key()) || 'null');
+    const isBest = !prev || seconds < prev.time || (seconds === prev.time && moves < prev.moves);
+    if (isBest) localStorage.setItem(key(), JSON.stringify({time: fmt(seconds), moves}));
+    showBest();
+    ovIco.textContent = '🏆';
+    ovTitle.textContent = 'Board cleared!';
+    ovText.textContent = `Solved in ${moves} moves and ${fmt(seconds)}.` + (isBest ? ' That\'s a new best!' : '');
+    startBtn.textContent = '↻ Play again';
+    overlay.classList.add('show');
+  }
+
+  function begin() {
+    build();
+    overlay.classList.remove('show');
+    started = true;
+  }
+
+  $('diff').addEventListener('change', e => {
+    size = +e.target.value;
+    build();
+    if (started) overlay.classList.remove('show');
+  });
+
+  startBtn.addEventListener('click', begin);
+  $('newBtn').addEventListener('click', begin);
+  document.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'n') { e.preventDefault(); begin(); }
+  });
+
+  build();
+})();
+</script>
+
+</body>
+</html>

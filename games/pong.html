@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pong vs AI — Game Hub</title>
+<meta name="description" content="Play Pong against the AI free online. First to 7 points wins. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏓</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🏓</div>
+    <div class="grow">
+      <h1>Pong vs AI</h1>
+      <p>The 1972 arcade original, reborn in your browser. You're on the left — first player to 7 points takes the match. The AI reads your angles.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/pong.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
+      <button class="btn btn-ghost btn-sm" id="pauseBtn">⏸ Pause</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">You <b id="pScore">0</b></div>
+    <div class="chip">AI <b id="aiScore">0</b></div>
+    <div class="chip">Best win streak <b id="streak">0</b></div>
+    <div class="chip">Rally <b id="rally">0</b></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="cv" width="760" height="470"></canvas>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🏓</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Move your paddle with <kbd>W</kbd>/<kbd>S</kbd>, the arrow keys, mouse, or touch. First to 7 points wins the match.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start match</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <span><kbd>W</kbd><kbd>S</kbd> or <kbd>↑</kbd><kbd>↓</kbd></span>
+    <span>🖱️ Mouse / touch also works</span>
+    <span><kbd>Space</kbd> pause</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const $ = id => document.getElementById(id);
+  const overlay = $('overlay'), ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+
+  const WIN = 7, PH = 88, PW = 13;
+  let you, ai, ball, pScore, aiScore, rally, alive, paused, started, streak, bestStreak, keys = {}, raf, serveTimer;
+
+  bestStreak = +(localStorage.getItem('gh.pong.streak') || 0);
+  $('streak').textContent = bestStreak;
+
+  function reset() {
+    you = {y: H / 2 - PH / 2, score: 0};
+    ai = {y: H / 2 - PH / 2, score: 0};
+    pScore = 0; aiScore = 0; rally = 0;
+    alive = true; paused = false; started = false;
+    updateHud();
+    serve(Math.random() < .5 ? 1 : -1);
+    draw();
+  }
+
+  function serve(toward) {
+    clearTimeout(serveTimer);
+    ball = {x: W / 2, y: H / 2, r: 9, vx: 0, vy: 0, speed: 6};
+    rally = 0;
+    $('rally').textContent = 0;
+    const angle = (Math.random() * .6 - .3);
+    ball.vx = Math.cos(angle) * ball.speed * toward;
+    ball.vy = Math.sin(angle) * ball.speed;
+    ball.serveAt = performance.now() + 800;
+  }
+
+  function updateHud() {
+    $('pScore').textContent = pScore;
+    $('aiScore').textContent = aiScore;
+    $('rally').textContent = rally;
+    $('streak').textContent = bestStreak;
+  }
+
+  function step(now) {
+    if (!alive || paused) return;
+
+    // player
+    const ps = 9;
+    if (keys.w || keys.arrowup) you.y -= ps;
+    if (keys.s || keys.arrowdown) you.y += ps;
+    you.y = Math.max(0, Math.min(H - PH, you.y));
+
+    // ai — tracks ball with slight imperfection, capped speed
+    const target = ball.y - PH / 2;
+    const diff = target - ai.y;
+    const aiSpeed = 6.2 + Math.min(2.4, (pScore + aiScore) * .22);
+    if (Math.abs(diff) > 6) ai.y += Math.sign(diff) * Math.min(Math.abs(diff), aiSpeed + (Math.random() * 1.6 - .8));
+    ai.y = Math.max(0, Math.min(H - PH, ai.y));
+
+    if (now < ball.serveAt) { ball.x = W / 2; draw(); return; }
+
+    ball.x += ball.vx; ball.y += ball.vy;
+
+    if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy *= -1; }
+    if (ball.y + ball.r > H) { ball.y = H - ball.r; ball.vy *= -1; }
+
+    // player paddle (left)
+    if (ball.vx < 0 && ball.x - ball.r <= 30 + PW && ball.x - ball.r >= 30 - 6 &&
+        ball.y >= you.y - ball.r && ball.y <= you.y + PH + ball.r) {
+      const hit = (ball.y - (you.y + PH / 2)) / (PH / 2);
+      ball.speed = Math.min(15, ball.speed + .55);
+      const ang = hit * .75;
+      ball.vx = Math.cos(ang) * ball.speed;
+      ball.vy = Math.sin(ang) * ball.speed;
+      ball.x = 30 + PW + ball.r;
+      rally++; $('rally').textContent = rally;
+    }
+
+    // ai paddle (right)
+    if (ball.vx > 0 && ball.x + ball.r >= W - 30 && ball.x + ball.r <= W - 30 + PW + 6 &&
+        ball.y >= ai.y - ball.r && ball.y <= ai.y + PH + ball.r) {
+      const hit = (ball.y - (ai.y + PH / 2)) / (PH / 2);
+      ball.speed = Math.min(15, ball.speed + .55);
+      const ang = hit * .75;
+      ball.vx = -Math.cos(ang) * ball.speed;
+      ball.vy = Math.sin(ang) * ball.speed;
+      ball.x = W - 30 - ball.r;
+      rally++; $('rally').textContent = rally;
+    }
+
+    if (ball.x < -30) point(ai);
+    else if (ball.x > W + 30) point(you);
+
+    draw();
+  }
+
+  function point(who) {
+    if (who === you) pScore++; else aiScore++;
+    rally = 0;
+    updateHud();
+    if (pScore >= WIN || aiScore >= WIN) return endMatch(pScore >= WIN);
+    serve(who === you ? -1 : 1);
+  }
+
+  function endMatch(won) {
+    alive = false;
+    clearTimeout(serveTimer);
+    if (won) {
+      streak++;
+      if (streak > bestStreak) { bestStreak = streak; localStorage.setItem('gh.pong.streak', bestStreak); }
+    } else streak = 0;
+    updateHud();
+    ovIco.textContent = won ? '🏆' : '😵';
+    ovTitle.textContent = won ? 'You win!' : 'AI wins';
+    ovText.textContent = won
+      ? 'Final score ' + pScore + '–' + aiScore + '. Win streak: ' + streak + (bestStreak === streak && streak > 0 ? ' (best!)' : '')
+      : 'Final score ' + pScore + '–' + aiScore + '. The machine takes this round — rematch?';
+    startBtn.textContent = '↻ Rematch';
+    overlay.classList.add('show');
+    draw();
+  }
+
+  function flashPause() {
+    ovIco.textContent = '⏸️'; ovTitle.textContent = 'Paused'; ovText.textContent = 'Match suspended. Resume when ready.';
+    startBtn.textContent = '▶ Resume';
+    overlay.classList.add('show');
+  }
+
+  function start() {
+    reset();
+    overlay.classList.remove('show');
+    started = true;
+  }
+
+  function togglePause() {
+    if (!alive || !started) return;
+    paused = !paused;
+    $('pauseBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
+    if (paused) flashPause(); else overlay.classList.remove('show');
+  }
+
+  function draw() {
+    ctx.fillStyle = '#05070c';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(255,255,255,.16)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([14, 16]);
+    ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(255,255,255,.09)';
+    ctx.font = 'bold 74px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(pScore, W / 2 - 90, 84);
+    ctx.fillText(aiScore, W / 2 + 90, 84);
+
+    paddle(30, you.y, '#22e3a3');
+    paddle(W - 30 - PW, ai.y, '#ff5d8f');
+
+    ctx.fillStyle = '#ffd23f';
+    ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    if (performance.now() < ball.serveAt && alive) {
+      ctx.fillStyle = 'rgba(232,236,246,.65)';
+      ctx.font = '600 16px system-ui';
+      ctx.fillText('Get ready…', W / 2, H - 26);
+    }
+  }
+
+  function paddle(x, y, color) {
+    ctx.fillStyle = color;
+    ctx.shadowColor = color; ctx.shadowBlur = 14;
+    ctx.beginPath();
+    const r = 6;
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + PW, y, x + PW, y + PH, r);
+    ctx.arcTo(x + PW, y + PH, x, y + PH, r);
+    ctx.arcTo(x, y + PH, x, y, r);
+    ctx.arcTo(x, y, x + PW, y, r);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function movePointer(clientY) {
+    const rect = cv.getBoundingClientRect();
+    const y = (clientY - rect.top) * (H / rect.height) - PH / 2;
+    you.y = Math.max(0, Math.min(H - PH, y));
+    draw();
+  }
+
+  cv.addEventListener('mousemove', e => { if (alive && !paused) movePointer(e.clientY); });
+  cv.addEventListener('touchmove', e => { e.preventDefault(); if (alive && !paused) movePointer(e.touches[0].clientY); }, {passive: false});
+  cv.addEventListener('touchstart', e => { if (alive && !paused) movePointer(e.touches[0].clientY); }, {passive: true});
+
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (['w','s','arrowup','arrowdown',' '].includes(k)) e.preventDefault();
+    keys[k] = true;
+    if (k === ' ') { if (!alive || !started) start(); else togglePause(); }
+  });
+  document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+  function loop(now) { step(now); raf = requestAnimationFrame(loop); }
+
+  startBtn.addEventListener('click', () => {
+    if (!alive) start();
+    else if (paused) togglePause();
+    else if (!started) start();
+  });
+  $('restartBtn').addEventListener('click', start);
+  $('pauseBtn').addEventListener('click', togglePause);
+
+  reset();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breakout — Game Hub</title>
+<meta name="description" content="Play Breakout free online. Smash every brick with your paddle and ball across escalating levels. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧱</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🧱</div>
+    <div class="grow">
+      <h1>Breakout</h1>
+      <p>Clear every brick before you lose your three lives. Each level adds rows and speed — the paddle narrows the further you get.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/breakout.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
+      <button class="btn btn-ghost btn-sm" id="pauseBtn">⏸ Pause</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Score <b id="score">0</b></div>
+    <div class="chip">Best <b id="best">0</b></div>
+    <div class="chip">Level <b id="level">1</b></div>
+    <div class="chip">Lives <b id="lives">❤❤❤</b></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="cv" width="720" height="520"></canvas>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🧱</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Move the paddle with your mouse, touch, or the arrow keys. Keep the ball in play and smash every brick.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start game</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <span>🖱️ Mouse / finger to move paddle</span>
+    <span><kbd>←</kbd><kbd>→</kbd> keys</span>
+    <span><kbd>Space</kbd> pause · launch ball</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const $ = id => document.getElementById(id);
+  const overlay = $('overlay'), ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+
+  const ROWS = 6, COLS = 10;
+  const PALETTE = ['#ff5d8f', '#ff8f5d', '#ffd23f', '#22e3a3', '#38d9ff', '#a78bfa'];
+
+  let paddle, ball, bricks, score, best, lives, level, alive, paused, started, launched, betweenLevels, raf, brickCount, serveAt;
+
+  best = +(localStorage.getItem('gh.breakout.best') || 0);
+  $('best').textContent = best;
+
+  function reset() {
+    score = 0; lives = 3; level = 1; alive = true; paused = false; started = false; launched = false; betweenLevels = false;
+    buildLevel();
+    updateHud();
+    draw();
+  }
+
+  function buildLevel() {
+    const pw = Math.max(70, 130 - (level - 1) * 10);
+    paddle = {w: pw, h: 14, x: W / 2 - pw / 2, y: H - 42, speed: 9};
+    ball = {x: W / 2, y: paddle.y - 12, r: 8, vx: 0, vy: 0, speed: 5 + (level - 1) * 0.7};
+    bricks = []; brickCount = 0;
+    const rows = Math.min(8, ROWS + Math.floor((level - 1) / 2));
+    const gap = 7, top = 54, side = 22;
+    const bw = (W - side * 2 - gap * (COLS - 1)) / COLS, bh = 20;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < COLS; c++) {
+        bricks.push({x: side + c * (bw + gap), y: top + r * (bh + gap), w: bw, h: bh,
+                     color: PALETTE[r % PALETTE.length], hp: r === 0 && level > 2 ? 2 : 1, alive: true});
+        brickCount++;
+      }
+    }
+    launchBall();
+  }
+
+  function launchBall() {
+    const a = (-Math.PI / 3) + Math.random() * (Math.PI / 3);
+    ball.vx = Math.cos(a) * ball.speed;
+    ball.vy = Math.sin(a) * ball.speed;
+    ball.x = paddle.x + paddle.w / 2;
+    ball.y = paddle.y - ball.r - 2;
+    launched = false;
+    serveAt = performance.now() + 900;
+  }
+
+  function updateHud() {
+    $('score').textContent = score;
+    $('best').textContent = best;
+    $('level').textContent = level;
+    $('lives').textContent = '❤'.repeat(Math.max(0, lives)) + '♡'.repeat(Math.max(0, 3 - lives));
+  }
+
+  function step() {
+    if (!alive || paused) return;
+
+    if (!launched) {
+      ball.x = paddle.x + paddle.w / 2;
+      ball.y = paddle.y - ball.r - 2;
+      if (performance.now() >= serveAt) launched = true;
+    } else {
+      ball.x += ball.vx; ball.y += ball.vy;
+
+      if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx *= -1; }
+      if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx *= -1; }
+      if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy *= -1; }
+
+      if (ball.vy > 0 && ball.y + ball.r >= paddle.y && ball.y - ball.r <= paddle.y + paddle.h &&
+          ball.x >= paddle.x - ball.r && ball.x <= paddle.x + paddle.w + ball.r) {
+        const hit = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+        const ang = hit * (Math.PI / 3);
+        ball.speed = Math.min(11, ball.speed + 0.14);
+        ball.vx = Math.sin(ang) * ball.speed;
+        ball.vy = -Math.abs(Math.cos(ang) * ball.speed);
+        ball.y = paddle.y - ball.r - 1;
+      }
+
+      for (const b of bricks) {
+        if (!b.alive) continue;
+        if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w &&
+            ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h) {
+          const ox = Math.min(ball.x + ball.r - b.x, b.x + b.w - (ball.x - ball.r));
+          const oy = Math.min(ball.y + ball.r - b.y, b.y + b.h - (ball.y - ball.r));
+          if (ox < oy) ball.vx *= -1; else ball.vy *= -1;
+          b.hp--;
+          if (b.hp <= 0) { b.alive = false; brickCount--; score += 10 * level; }
+          else score += 5;
+          if (score > best) { best = score; localStorage.setItem('gh.breakout.best', best); }
+          updateHud();
+          if (brickCount === 0) return nextLevel();
+          break;
+        }
+      }
+
+      if (ball.y - ball.r > H) {
+        lives--;
+        updateHud();
+        if (lives <= 0) return gameOver();
+        launchBall();
+      }
+    }
+    draw();
+  }
+
+  function nextLevel() {
+    level++;
+    updateHud();
+    betweenLevels = true;
+    flash('🎉', 'Level ' + level, 'Bricks cleared! Paddle shrinks and the ball speeds up.', '▶ Start level ' + level);
+  }
+
+  function continueLevel() {
+    betweenLevels = false;
+    buildLevel();
+    overlay.classList.remove('show');
+    draw();
+  }
+
+  function gameOver() {
+    alive = false;
+    flash('💥', 'Game over', 'Final score: ' + score + ' · reached level ' + level + (score >= best && score > 0 ? ' · New high score!' : ''), '↻ Play again');
+  }
+
+  function flash(ico, title, text, label) {
+    ovIco.textContent = ico; ovTitle.textContent = title; ovText.textContent = text;
+    startBtn.textContent = label;
+    overlay.classList.add('show');
+    draw();
+  }
+
+  function start() {
+    reset();
+    overlay.classList.remove('show');
+    started = true;
+    draw();
+  }
+
+  function togglePause() {
+    if (!alive || !started) return;
+    paused = !paused;
+    $('pauseBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
+    if (paused) flash('⏸️', 'Paused', 'Press resume when you\'re ready.', '▶ Resume');
+    else overlay.classList.remove('show');
+  }
+
+  function draw() {
+    ctx.fillStyle = '#05070c';
+    ctx.fillRect(0, 0, W, H);
+
+    for (const b of bricks) {
+      if (!b.alive) continue;
+      ctx.fillStyle = b.color;
+      ctx.globalAlpha = b.hp > 1 ? 1 : .92;
+      ctx.beginPath();
+      const r = 5;
+      ctx.moveTo(b.x + r, b.y);
+      ctx.arcTo(b.x + b.w, b.y, b.x + b.w, b.y + b.h, r);
+      ctx.arcTo(b.x + b.w, b.y + b.h, b.x, b.y + b.h, r);
+      ctx.arcTo(b.x, b.y + b.h, b.x, b.y, r);
+      ctx.arcTo(b.x, b.y, b.x + b.w, b.y, r);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      if (b.hp > 1) {
+        ctx.fillStyle = 'rgba(0,0,0,.35)';
+        ctx.fillRect(b.x + 4, b.y + b.h - 6, b.w - 8, 3);
+      }
+    }
+
+    ctx.fillStyle = '#e8ecf6';
+    ctx.beginPath();
+    const r = 6;
+    ctx.moveTo(paddle.x + r, paddle.y);
+    ctx.arcTo(paddle.x + paddle.w, paddle.y, paddle.x + paddle.w, paddle.y + paddle.h, r);
+    ctx.arcTo(paddle.x + paddle.w, paddle.y + paddle.h, paddle.x, paddle.y + paddle.h, r);
+    ctx.arcTo(paddle.x, paddle.y + paddle.h, paddle.x, paddle.y, r);
+    ctx.arcTo(paddle.x, paddle.y, paddle.x + paddle.w, paddle.y, r);
+    ctx.fill();
+    ctx.fillStyle = '#8b5cf6';
+    ctx.fillRect(paddle.x + 3, paddle.y + 3, paddle.w - 6, 3);
+
+    ctx.fillStyle = '#22e3a3';
+    ctx.shadowColor = '#22e3a3'; ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    if (!launched && alive) {
+      ctx.fillStyle = 'rgba(232,236,246,.62)';
+      ctx.font = '600 15px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(performance.now() < serveAt ? 'Get ready…' : 'Click or press Space to launch', W / 2, H / 2 + 70);
+    }
+  }
+
+  function movePointer(clientX) {
+    const rect = cv.getBoundingClientRect();
+    const x = (clientX - rect.left) * (W / rect.width);
+    paddle.x = Math.max(0, Math.min(W - paddle.w, x - paddle.w / 2));
+    if (!launched) ball.x = paddle.x + paddle.w / 2;
+    draw();
+  }
+
+  cv.addEventListener('mousemove', e => { if (alive && !paused) movePointer(e.clientX); });
+  cv.addEventListener('touchmove', e => { e.preventDefault(); if (alive && !paused) movePointer(e.touches[0].clientX); }, {passive: false});
+  cv.addEventListener('touchstart', e => {
+    if (!alive || !started) return;
+    if (!launched) { launched = true; } else { movePointer(e.touches[0].clientX); }
+  }, {passive: true});
+  cv.addEventListener('click', () => { if (alive && !paused && !launched) launched = true; });
+
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'arrowleft' || k === 'a') { e.preventDefault(); paddle.x = Math.max(0, paddle.x - paddle.speed * 2); if (!launched) ball.x = paddle.x + paddle.w/2; draw(); }
+    if (k === 'arrowright' || k === 'd') { e.preventDefault(); paddle.x = Math.min(W - paddle.w, paddle.x + paddle.speed * 2); if (!launched) ball.x = paddle.x + paddle.w/2; draw(); }
+    if (k === ' ') { e.preventDefault(); if (!alive || !started) start(); else if (!launched) launched = true; else togglePause(); }
+  });
+
+  function loop() { step(); raf = requestAnimationFrame(loop); }
+
+  startBtn.addEventListener('click', () => {
+    if (betweenLevels) continueLevel();
+    else if (!alive || !started) start();
+    else togglePause();
+  });
+  $('restartBtn').addEventListener('click', start);
+  $('pauseBtn').addEventListener('click', togglePause);
+
+  reset();
+  loop();
+})();
+</script>
+
+</body>
+</html>

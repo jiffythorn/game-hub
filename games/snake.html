@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake — Game Hub</title>
+<meta name="description" content="Play Snake free online. Arrow keys, WASD or swipe. Beat your high score, then download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐍</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🐍</div>
+    <div class="grow">
+      <h1>Snake</h1>
+      <p>Eat the apples, grow your tail, and never cross yourself. The board speeds up every five apples — how long can you survive?</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/snake.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
+      <button class="btn btn-ghost btn-sm" id="pauseBtn">⏸ Pause</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Score <b id="score">0</b></div>
+    <div class="chip">Best <b id="best">0</b></div>
+    <div class="chip">Length <b id="len">3</b></div>
+    <div class="chip">Speed <b id="spd">1</b></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="board" width="480" height="480"></canvas>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🐍</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Use the arrow keys, WASD, or swipe on touch screens. Eat apples to score — don't hit the walls or yourself.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start game</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
+    <span><kbd>Space</kbd> pause</span>
+    <span>Swipe on mobile</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const cv = document.getElementById('board'), ctx = cv.getContext('2d');
+  const CELLS = 24, CELL = cv.width / CELLS;
+  const $ = id => document.getElementById(id);
+  const overlay = $('overlay'), ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+
+  let snake, dir, nextDir, food, score, best, alive, paused, started, timer, level;
+
+  best = +(localStorage.getItem('gh.snake.best') || 0);
+  $('best').textContent = best;
+
+  function reset() {
+    snake = [{x: 8, y: 12}, {x: 7, y: 12}, {x: 6, y: 12}];
+    dir = {x: 1, y: 0}; nextDir = dir;
+    score = 0; alive = true; paused = false; started = false; level = 1;
+    placeFood();
+    updateHud();
+    draw();
+  }
+
+  function placeFood() {
+    do {
+      food = {x: (Math.random() * CELLS) | 0, y: (Math.random() * CELLS) | 0};
+    } while (snake.some(s => s.x === food.x && s.y === food.y));
+  }
+
+  function updateHud() {
+    $('score').textContent = score;
+    $('best').textContent = best;
+    $('len').textContent = snake.length;
+    $('spd').textContent = level;
+  }
+
+  function tick() {
+    if (!alive || paused) return;
+    dir = nextDir;
+    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+    if (head.x < 0 || head.y < 0 || head.x >= CELLS || head.y >= CELLS ||
+        snake.some(s => s.x === head.x && s.y === head.y)) return gameOver();
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+      score += 10;
+      level = Math.min(9, 1 + Math.floor(score / 50));
+      if (score > best) { best = score; localStorage.setItem('gh.snake.best', best); }
+      placeFood();
+      updateHud();
+      restartTimer();
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+
+  function restartTimer() {
+    clearInterval(timer);
+    timer = setInterval(tick, 170 - (level - 1) * 15);
+  }
+
+  function gameOver() {
+    alive = false;
+    clearInterval(timer);
+    ovIco.textContent = '💀';
+    ovTitle.textContent = 'Game over';
+    ovText.textContent = 'You scored ' + score + ' points and grew to ' + snake.length + ' tiles.' + (score >= best && score > 0 ? ' New high score!' : '');
+    startBtn.textContent = '↻ Play again';
+    overlay.classList.add('show');
+    draw();
+  }
+
+  function start() {
+    reset();
+    overlay.classList.remove('show');
+    started = true;
+    restartTimer();
+  }
+
+  function togglePause() {
+    if (!alive || !started) return;
+    paused = !paused;
+    $('pauseBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
+    if (paused) {
+      ovIco.textContent = '⏸️';
+      ovTitle.textContent = 'Paused';
+      ovText.textContent = 'Take a breath. Your snake is waiting.';
+      startBtn.textContent = '▶ Resume';
+      overlay.classList.add('show');
+    } else {
+      overlay.classList.remove('show');
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle = '#05070c';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+
+    ctx.strokeStyle = 'rgba(255,255,255,.035)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < CELLS; i++) {
+      ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, cv.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * CELL); ctx.lineTo(cv.width, i * CELL); ctx.stroke();
+    }
+
+    // food
+    const fx = food.x * CELL + CELL / 2, fy = food.y * CELL + CELL / 2;
+    ctx.fillStyle = '#ff5d8f';
+    ctx.shadowColor = '#ff5d8f'; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.arc(fx, fy, CELL * 0.34, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#22e3a3';
+    ctx.fillRect(fx - 1, fy - CELL * 0.46, 3, 5);
+
+    // snake
+    snake.forEach((s, i) => {
+      const t = i / snake.length;
+      ctx.fillStyle = i === 0 ? '#22e3a3' : `rgba(${34 + t * 40}, ${227 - t * 90}, ${163 - t * 60}, 1)`;
+      const p = i === 0 ? 1 : 2;
+      roundRect(s.x * CELL + p, s.y * CELL + p, CELL - p * 2, CELL - p * 2, i === 0 ? 7 : 5);
+    });
+
+    if (!alive) {
+      ctx.fillStyle = 'rgba(5,7,12,.55)';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#ff5d8f';
+      ctx.font = 'bold 46px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('☠', cv.width / 2, cv.height / 2 + 16);
+    }
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.fill();
+  }
+
+  function setDir(x, y) {
+    if (dir.x === -x && dir.y === -y) return;
+    nextDir = {x, y};
+  }
+
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    const map = {
+      arrowup: [0, -1], w: [0, -1],
+      arrowdown: [0, 1], s: [0, 1],
+      arrowleft: [-1, 0], a: [-1, 0],
+      arrowright: [1, 0], d: [1, 0]
+    };
+    if (map[k]) { e.preventDefault(); if (!started || !alive) { start(); } setDir(...map[k]); }
+    if (k === ' ' || k === 'p') { e.preventDefault(); started && alive ? togglePause() : start(); }
+  });
+
+  let ts = null;
+  cv.addEventListener('touchstart', e => { ts = {x: e.touches[0].clientX, y: e.touches[0].clientY}; }, {passive: true});
+  cv.addEventListener('touchend', e => {
+    if (!ts) return;
+    const dx = e.changedTouches[0].clientX - ts.x, dy = e.changedTouches[0].clientY - ts.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) { if (!alive || !started) start(); else togglePause(); return; }
+    if (!started || !alive) start();
+    if (Math.abs(dx) > Math.abs(dy)) setDir(Math.sign(dx), 0); else setDir(0, Math.sign(dy));
+    ts = null;
+  }, {passive: true});
+
+  startBtn.addEventListener('click', () => { if (!alive || !started) start(); else togglePause(); });
+  $('restartBtn').addEventListener('click', start);
+  $('pauseBtn').addEventListener('click', togglePause);
+
+  reset();
+})();
+</script>
+
+</body>
+</html>
