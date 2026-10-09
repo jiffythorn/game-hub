@@ -1,0 +1,101 @@
+/* Custom giscus theme — extends GitHub's dark theme, remapped to the Game Hub palette. */
+@import url("https://giscus.app/themes/dark.css");
+
+:root {
+  --color-canvas-default: #0f131d;
+  --color-canvas-overlay: #161b28;
+  --color-canvas-inset: #0a0d14;
+  --color-canvas-subtle: #161b28;
+
+  --color-fg-default: #e8ecf6;
+  --color-fg-muted: #93a0bd;
+  --color-fg-subtle: #6d7b99;
+  --color-fg-on-emphasis: #ffffff;
+
+  --color-border-default: #2a3247;
+  --color-border-muted: #232b3e;
+  --color-border-subtle: #232b3e;
+
+  --color-accent-fg: #a78bfa;
+  --color-accent-emphasis: #8b5cf6;
+  --color-accent-muted: rgba(139, 92, 246, .3);
+  --color-accent-subtle: rgba(139, 92, 246, .14);
+
+  --color-success-fg: #22e3a3;
+  --color-success-emphasis: #1a8f68;
+  --color-success-muted: rgba(34, 227, 163, .3);
+  --color-success-subtle: rgba(34, 227, 163, .1);
+
+  --color-danger-fg: #ff5d8f;
+  --color-danger-emphasis: #c0263b;
+  --color-danger-muted: rgba(255, 93, 143, .3);
+  --color-danger-subtle: rgba(255, 93, 143, .1);
+
+  --color-attention-fg: #ffd23f;
+  --color-attention-emphasis: #b8901a;
+  --color-attention-muted: rgba(255, 210, 63, .3);
+  --color-attention-subtle: rgba(255, 210, 63, .1);
+
+  --color-neutral-emphasis: #2a3247;
+  --color-neutral-muted: rgba(147, 160, 189, .3);
+  --color-neutral-subtle: rgba(147, 160, 189, .1);
+
+  --color-btn-primary-bg: #8b5cf6;
+  --color-btn-primary-hover-bg: #9a70f8;
+  --color-btn-primary-selected-bg: #6d3ff5;
+  --color-btn-primary-text: #ffffff;
+  --color-btn-primary-border: rgba(0, 0, 0, .2);
+  --color-btn-primary-hover-border: rgba(0, 0, 0, .2);
+  --color-btn-primary-selected-border: rgba(0, 0, 0, .2);
+  --color-btn-primary-shadow: 0 1px 0 rgba(27, 31, 36, .1);
+
+  --color-btn-outline-text: #e8ecf6;
+  --color-btn-outline-bg: #161b28;
+  --color-btn-outline-hover-bg: #1d2434;
+  --color-btn-outline-hover-text: #ffffff;
+  --color-btn-outline-hover-border: #8b5cf6;
+  --color-btn-outline-selected-bg: #1d2434;
+  --color-btn-outline-selected-text: #e8ecf6;
+  --color-btn-outline-selected-border: #8b5cf6;
+  --color-btn-outline-border: #2a3247;
+  --color-btn-outline-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+
+  --color-btn-bg: #161b28;
+  --color-btn-hover-bg: #1d2434;
+  --color-btn-hover-border: #2a3247;
+  --color-btn-selected-bg: #1d2434;
+  --color-btn-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+
+  --color-counter-bg: #1d2434;
+  --color-header-text: #e8ecf6;
+  --color-fg-on-emphasis: #ffffff;
+
+  --color-state-hover-border: rgba(139, 92, 246, .5);
+  --color-state-hover-bg: rgba(139, 92, 246, .12);
+  --color-state-selected-border: #8b5cf6;
+  --color-state-selected-bg: rgba(139, 92, 246, .2);
+
+  --color-tabnav-selected-tab-bg: #0f131d;
+  --color-tabnav-bg: #0a0d14;
+  --color-tabnav-inset-bg: #0a0d14;
+
+  --color-social-reaction-bg: rgba(147, 160, 189, .15);
+  --color-social-reaction-bg-hover: rgba(139, 92, 246, .25);
+  --color-social-reaction-border: #2a3247;
+  --color-social-reaction-hover-border: #8b5cf6;
+
+  --color-marketing-icon: #8b5cf6;
+  --color-prettylights-syntax-*: inherit;
+
+  --fontStack-body: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --fontStack-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Blend the embed with the page */
+.giscus, .giscus-frame {
+  border-radius: 0;
+}
+
+.giscus-frame {
+  color-scheme: dark;
+}

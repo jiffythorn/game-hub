@@ -5,6 +5,29 @@ Play classic arcade games free in your browser — and **download them to play o
 No installs. No accounts. No ads. No tracking. Just HTML, CSS and vanilla JavaScript.
 
 **▶ Play now: <https://jiffythorn.github.io/game-hub/>**
+**💬 Guestbook: <https://jiffythorn.github.io/game-hub/chat.html>**
+
+## Guestbook
+
+Visitors can leave messages for each other on [`chat.html`](chat.html).
+
+Chat is hosted by **[giscus](https://giscus.app)**, which turns a GitHub
+Discussions category into a comment thread — so there is no server to run and
+every message is a real GitHub Discussion you can moderate from the repo.
+
+- **Repo settings used:** `repoId` `R_kgDOVBlm5A`, category `General`
+  (`DIC_kwDOVBlm5M4DHYkc`), mapping `pathname`.
+- **Theme:** [`giscus-theme.css`](giscus-theme.css) — imports the official dark
+  theme, then remaps GitHub Primer colours to the Game Hub palette. GitHub
+  Pages serves it with `access-control-allow-origin: *`, which giscus requires.
+- **Moderation:** delete, hide, lock or pin messages from
+  [Discussions](https://github.com/jiffythorn/game-hub/discussions). Reports
+  filed through the site's 🚩 button open an issue labelled `report`.
+- **Offline:** the guestbook needs internet, so the downloaded ZIP shows a
+  friendly fallback instead of the chat.
+
+> ⚠️ One-time setup: install the **[giscus GitHub App](https://github.com/apps/giscus)**
+> on this repository, otherwise the embed cannot read or write discussions.
 
 ## Games
 
@@ -69,6 +92,8 @@ Push to `main` and the site updates automatically.
 ```
 game-hub/
 ├── index.html                 home page + game grid
+├── chat.html                  guestbook (giscus)
+├── giscus-theme.css           custom giscus theme
 ├── style.css                  shared theme and layout
 ├── games/
 │   ├── snake.html

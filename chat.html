@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guestbook — Game Hub</title>
+<meta name="description" content="Leave a message for other players visiting Game Hub. Powered by GitHub Discussions. Say hi, share a high score, or request a game.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="index.html#games">All games</a>
+  <a class="link hide-sm" href="index.html#download">Download</a>
+  <a class="link hide-sm" href="https://github.com/jiffythorn/game-hub/discussions" target="_blank" rel="noopener">Discussions</a>
+  <a class="btn btn-primary btn-sm" href="chat.html">💬 Guestbook</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">💬</div>
+    <div class="grow">
+      <h1>Guestbook</h1>
+      <p>Leave a note for whoever plays next — say hi, brag about a score, report a bug, or request a game. Messages are signed in with your GitHub account and are visible to everyone.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener"
+         href="https://github.com/jiffythorn/game-hub/issues/new?title=%5BChat%5D%20Report%20a%20message&body=**Message%20to%20report**%20(paste%20the%20discussion%20link%20or%20quote%20the%20text)%3A%0A%3C!--%20e.g.%20https%3A%2F%2Fgithub.com%2Fjiffythorn%2Fgame-hub%2Fdiscussions%2F12%20--%3E%0A%0A**Why%20should%20it%20be%20removed%3F**%0A%3C!--%20Be%20specific%20--%3E%0A%0A---%0A_Reported%20from%20the%20Game%20Hub%20guestbook._&labels=report">🚩 Report a message</a>
+      <a class="btn btn-green btn-sm" href="downloads/game-hub-offline.zip" download>⬇ Download</a>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip">🔒 Signed in via GitHub</div>
+    <div class="chip">🌐 Public to everyone</div>
+    <div class="chip">🛡️ Report button above</div>
+  </div>
+
+  <div class="chat-box" id="chatBox">
+    <p class="chat-status" id="chatStatus">Loading the guestbook…</p>
+    <div class="giscus"></div>
+
+    <div class="chat-fallback" id="chatFallback">
+      <div class="ico">📡</div>
+      <h3>The guestbook needs a connection</h3>
+      <p>Messages are stored on GitHub, so this page needs internet access. You're offline right now — go play some games, or open the guestbook later.</p>
+      <div class="chat-links">
+        <a class="btn btn-primary btn-sm" href="https://github.com/jiffythorn/game-hub/discussions" target="_blank" rel="noopener">Open on GitHub</a>
+        <a class="btn btn-ghost btn-sm" href="index.html#games">← Back to games</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="rules">
+    <div class="rule"><div class="ico">👋</div><div><b>Say hi</b><span>New here? Introduce yourself and tell us which game you beat.</span></div></div>
+    <div class="rule"><div class="ico">🏆</div><div><b>Post scores</b><span>High scores are stored locally on your device — share the number here so others can chase it.</span></div></div>
+    <div class="rule"><div class="ico">🐞</div><div><b>Report bugs</b><span>Found something broken? A short description plus your browser helps a lot.</span></div></div>
+    <div class="rule"><div class="ico">💡</div><div><b>Request games</b><span>Want Tetris, Pong 2-player, or something else? Ask and it might get built.</span></div></div>
+    <div class="rule"><div class="ico">🚩</div><div><b>Report abuse</b><span>Use the report button above. Every report is reviewed by the repo owner.</span></div></div>
+    <div class="rule"><div class="ico">🚫</div><div><b>Keep it kind</b><span>No spam, no personal info, no links to sketchy sites. That's the whole rulebook.</span></div></div>
+  </div>
+
+  <div class="chat-links">
+    <a class="btn btn-ghost btn-sm" href="https://github.com/jiffythorn/game-hub/discussions" target="_blank" rel="noopener">View all messages on GitHub →</a>
+    <a class="btn btn-ghost btn-sm" href="index.html#games">← Back to games</a>
+  </div>
+</main>
+
+<footer>
+  Guestbook is powered by <a href="https://giscus.app" target="_blank" rel="noopener">giscus</a> + GitHub Discussions · <a href="https://github.com/jiffythorn/game-hub" target="_blank" rel="noopener">Source on GitHub</a> · MIT License
+</footer>
+
+<script src="https://giscus.app/client.js"
+        data-repo="jiffythorn/game-hub"
+        data-repoId="R_kgDOVBlm5A"
+        data-category="General"
+        data-categoryId="DIC_kwDOVBlm5M4DHYkc"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="https://jiffythorn.github.io/game-hub/giscus-theme.css"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        onerror="window.__giscusFailed = true">
+</script>
+
+<script>
+(function () {
+  var status = document.getElementById('chatStatus');
+  var fallback = document.getElementById('chatFallback');
+  var done = false;
+
+  function fail(msg) {
+    if (done) return;
+    done = true;
+    status.style.display = 'none';
+    fallback.classList.add('show');
+    if (msg) fallback.querySelector('p').textContent = msg;
+  }
+
+  function ready() {
+    if (done) return;
+    done = true;
+    status.style.display = 'none';
+  }
+
+  // giscus finished loading and talked back to us
+  window.addEventListener('message', function (e) {
+    if (!e.origin.endsWith('giscus.app')) return;
+    if (e.data && e.data.giscus && e.data.giscus.error) {
+      fail('The guestbook could not start: ' + e.data.giscus.error);
+      return;
+    }
+    ready();
+  });
+
+  window.addEventListener('load', function () {
+    if (window.__giscusFailed) {
+      fail();
+      return;
+    }
+    setTimeout(function () {
+      if (done) return;
+      var host = document.querySelector('.giscus');
+      var up = document.querySelector('giscus-widget');
+      var frame = host && host.querySelector('iframe');
+      if (up || frame) ready();
+      else fail();
+    }, 7000);
+  });
+})();
+</script>
+
+</body>
+</html>
