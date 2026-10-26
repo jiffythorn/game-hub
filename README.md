@@ -44,10 +44,14 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | 👾 **Star Swarm** | ← → / A D, Space to fire | Waves, 3 lives, destructible bunkers, best score |
 | 🔴 **Four in a Row** | Click / tap a column | 7×6 board, 3 AI levels, 2-player mode |
 | 📦 **Sokoban** | Arrows / WASD / swipe | 8 hand-built levels, undo, hints, move & push counters |
+| 🎟️ **Bingo** | Click / tap to dab, `B` to claim | 75-ball caller, 5×5 cards with free centre, smart bots, **multiplayer rooms with invite links** |
 
 ## Play offline
 
 Every game is a single static page — there is no server and no build step.
+
+> Bingo's solo mode (you against bots) works offline. Its multiplayer rooms
+> need an internet connection, because players connect to each other directly.
 
 **Option 1 — grab the whole site**
 
@@ -87,6 +91,31 @@ python3 scripts/build_downloads.py
 
 Commit the regenerated ZIPs alongside your changes.
 
+## Bingo rooms
+
+Bingo can be played alone or with friends. No account, no game server to run:
+
+- **Solo** — pick 0–5 bots. Bots track every line on their card, dab with
+  human-like reaction times, and shout bingo once a line is complete. There are
+  three speeds: *Casual* (slow and forgiving), *Sharp* (a fair race) and
+  *Ruthless* (spots a line almost instantly).
+- **Host a room** — you get a 4-character code plus an invite link. Whoever
+  opens the link lands in your lobby; you choose the bot count, difficulty and
+  call speed, then press start.
+- **Join a room** — type a friend's code, or just open the invite link.
+- **Room chat** — everyone in the room can talk while waiting and during a
+  round. Guests' messages are relayed by the host, the same way game state is.
+
+How it works: the host's browser is authoritative — it draws the numbers,
+validates every claim against the numbers actually called, runs the bots and
+broadcasts state. Players connect directly via WebRTC using
+[PeerJS](https://peerjs.com)'s free public signalling server, so there is still
+nothing to host and the site stays a static GitHub Pages deploy. If the host
+closes the tab, guests are told the room is gone.
+
+Only the host's connection to the signalling server is required; no messages go
+through Game Hub itself.
+
 ## Deploy
 
 GitHub Pages is configured to serve from the `main` branch, root folder.
@@ -111,7 +140,8 @@ game-hub/
 │   ├── blocks.html
 │   ├── swarm.html
 │   ├── connect4.html
-│   └── sokoban.html
+│   ├── sokoban.html
+│   └── bingo.html
 ├── downloads/                 generated ZIPs (do not edit by hand)
 ├── scripts/build_downloads.py rebuilds downloads/
 ├── LICENSE

@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bingo — Game Hub</title>
+<meta name="description" content="Play Bingo free online against smart bots or friends in private rooms. 5×5 cards, live 75-ball caller, instant bingo checks and invite links. No install, no ads — download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎟️</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="link hide-sm" href="../chat.html">💬 Guestbook</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🎟️</div>
+    <div class="grow">
+      <h1>Bingo</h1>
+      <p>Dab every number as it is called and be first to complete a line — row, column or diagonal. Play solo against bots that never blink, or host a room and send friends an invite link.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/bingo.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="menuBtn">☰ Menu</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Ball <b id="hudBall">—</b></div>
+    <div class="chip">Called <b id="hudCalled">0/75</b></div>
+    <div class="chip">Players <b id="hudPlayers">1</b></div>
+    <div class="chip" id="hudRoomChip" hidden>Room <b id="hudRoom">—</b></div>
+    <div class="chip">Wins <b id="hudWins">0</b></div>
+  </div>
+
+  <section class="bingo-lobby" id="lobby" hidden>
+    <div class="bingo-lobby-head">
+      <div>
+        <h2>Room <b id="lobbyCode">—</b></h2>
+        <p class="bingo-lobby-hint" id="lobbyHint">Send friends the invite link — they can join until you start the round.</p>
+      </div>
+      <div class="bingo-actions-inline">
+        <button class="btn btn-green btn-sm" id="copyBtn">📋 Copy invite link</button>
+        <button class="btn btn-ghost btn-sm" id="leaveBtn">← Leave</button>
+      </div>
+    </div>
+
+    <div class="bingo-invite-row" id="inviteRow">
+      <input class="bingo-input" id="inviteUrl" readonly aria-label="Invite link">
+    </div>
+
+    <div class="bingo-lobby-grid">
+      <div>
+        <h4 class="bingo-h4">Players <span class="bingo-count" id="lobbyCount">0</span></h4>
+        <ul class="bingo-players" id="lobbyPlayers"></ul>
+      </div>
+      <div id="hostControls">
+        <h4 class="bingo-h4">Host controls</h4>
+        <label class="bingo-field">Bots
+          <select class="bingo-select" id="botCount">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+        <label class="bingo-field">Bot skill
+          <select class="bingo-select" id="botSkill">
+            <option value="easy">Casual</option>
+            <option value="normal">Sharp</option>
+            <option value="hard">Ruthless</option>
+          </select>
+        </label>
+        <label class="bingo-field">Call speed
+          <select class="bingo-select" id="callSpeed">
+            <option value="5200">Relaxed · 5s</option>
+            <option value="3200">Steady · 3s</option>
+            <option value="2000">Fast · 2s</option>
+          </select>
+        </label>
+        <label class="bingo-check"><input type="checkbox" id="autoCallChk" checked> Auto-call numbers</label>
+        <button class="btn btn-primary" id="startGameBtn">▶ Start round</button>
+      </div>
+      <div id="guestWait" hidden>
+        <h4 class="bingo-h4">Waiting for the host</h4>
+        <p class="bingo-note">The host starts the round once everyone is in. You can leave any time.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="bingo-stage" id="stage">
+    <section class="bingo-caller">
+      <div class="bingo-ball idle" id="curBall">
+        <span class="bbl">—</span>
+        <span class="bnum">?</span>
+      </div>
+      <div class="bingo-recent" id="recent" aria-label="Recently called numbers"></div>
+      <p class="bingo-togo" id="toGo">Dab every called number on your card</p>
+    </section>
+
+    <section class="bingo-card-panel">
+      <div class="bingo-heads"><span>B</span><span>I</span><span>N</span><span>G</span><span>O</span></div>
+      <div class="bingo-card" id="card" aria-label="Your bingo card"></div>
+      <div class="bingo-actions">
+        <button class="btn btn-green" id="claimBtn" disabled>🎉 BINGO!</button>
+        <button class="btn btn-ghost btn-sm" id="callBtn" hidden>📣 Call ball</button>
+        <button class="btn btn-ghost btn-sm" id="pauseBtn" hidden>⏸ Pause</button>
+      </div>
+    </section>
+
+    <section class="bingo-roster-panel">
+      <h4 class="bingo-h4">Players</h4>
+      <ul class="bingo-players" id="roster"></ul>
+      <p class="bingo-note" id="note" aria-live="polite"></p>
+    </section>
+
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🎟️</div>
+      <h2 id="ovTitle">Bingo</h2>
+      <p id="ovText">Dab the numbers as they are called, complete a line, and hit BINGO before anyone else.</p>
+      <div class="ov-actions" id="ovActions"></div>
+    </div>
+  </div>
+
+  <section class="bingo-chat" id="chatPanel" hidden>
+    <h4 class="bingo-h4">Room chat</h4>
+    <ul class="chat-log" id="chatLog" aria-live="polite" aria-label="Room chat messages"></ul>
+    <form class="chat-form" id="chatForm">
+      <input class="bingo-input" id="chatInput" maxlength="140" placeholder="Say something…" autocomplete="off" aria-label="Chat message">
+      <button class="btn btn-primary btn-sm" type="submit">Send</button>
+    </form>
+  </section>
+
+  <div class="controls-hint">
+    <span>🖱️ Click a called number to dab it</span>
+    <span><kbd>B</kbd> call bingo</span>
+    <span><kbd>N</kbd> next round</span>
+    <span><kbd>Esc</kbd> leave room</span>
+    <span>🤖 Solo play works offline · rooms need internet</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   * helpers
+   * ------------------------------------------------------------------ */
+  const $ = id => document.getElementById(id);
+  const COLS = ['B', 'I', 'N', 'G', 'O'];
+  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const BOT_NAMES = ['Nova', 'Pixel', 'Mabel', 'Rex', 'Juno', 'Ziggy', 'Echo', 'Tess'];
+  const PEER_SRC = [
+    'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js',
+    'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js'
+  ];
+
+  // Bots differ in how fast they spot a called number and how fast they shout
+  // bingo once a line is complete. Every claim is still checked against the
+  // real called numbers, so a bot can never win on a card that is not full.
+  const SKILLS = {
+    easy:   { label: 'Casual',   react: [900, 1900], claim: [1200, 2300] },
+    normal: { label: 'Sharp',    react: [520, 1200], claim: [700, 1450] },
+    hard:   { label: 'Ruthless', react: [260, 700],  claim: [330, 780] }
+  };
+
+  const LS = {
+    get(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw == null ? fallback : JSON.parse(raw);
+      } catch (e) { return fallback; }
+    },
+    set(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private mode */ }
+    }
+  };
+
+  const cleanName = value => String(value == null ? '' : value)
+    .replace(/[<>&"'`\\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 16);
+
+  const randBetween = range => range[0] + Math.random() * (range[1] - range[0]);
+
+  /* ------------------------------------------------------------------ *
+   * pure state logic (no DOM, no network)
+   * ------------------------------------------------------------------ */
+  // --- pure-logic-start ---
+  const LINE_SETS = (() => {
+    const lines = [];
+    for (let r = 0; r < 5; r++) lines.push([0, 1, 2, 3, 4].map(c => r * 5 + c));
+    for (let c = 0; c < 5; c++) lines.push([0, 1, 2, 3, 4].map(r => r * 5 + c));
+    lines.push([0, 6, 12, 18, 24]);
+    lines.push([4, 8, 12, 16, 20]);
+    return lines;
+  })();
+
+  function shuffle(list, rand = Math.random) {
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      const tmp = list[i];
+      list[i] = list[j];
+      list[j] = tmp;
+    }
+    return list;
+  }
+
+  // 5x5 card: column B holds 1-15, I 16-30, N 31-45, G 46-60, O 61-75.
+  // Index 12 is the free centre.
+  function makeCard(rand = Math.random) {
+    const card = new Array(25);
+    for (let c = 0; c < 5; c++) {
+      const pool = [];
+      for (let n = c * 15 + 1; n <= c * 15 + 15; n++) pool.push(n);
+      shuffle(pool, rand);
+      for (let r = 0; r < 5; r++) card[r * 5 + c] = pool[r];
+    }
+    card[12] = 0;
+    return card;
+  }
+
+  function cardSig(card) { return card.join(','); }
+
+  function uniqueCard(taken = [], rand = Math.random) {
+    const seen = new Set(taken.filter(Boolean).map(cardSig));
+    for (let tries = 0; tries < 80; tries++) {
+      const card = makeCard(rand);
+      if (!seen.has(cardSig(card))) return card;
+    }
+    return makeCard(rand);
+  }
+
+  const letterOf = n => COLS[Math.floor((n - 1) / 15)] || '?';
+
+  function dabbedFromCalled(card, called) {
+    const out = new Set([12]);
+    card.forEach((n, i) => { if (n && called.has(n)) out.add(i); });
+    return out;
+  }
+
+  function completedLines(dabbed) {
+    return LINE_SETS.filter(line => line.every(i => dabbed.has(i)));
+  }
+
+  // Fewest dabs still missing on the player's closest line (0 = bingo ready).
+  function bestLine(dabbed) {
+    let best = 5;
+    for (const line of LINE_SETS) {
+      let missing = 0;
+      for (const i of line) if (!dabbed.has(i)) missing++;
+      if (missing < best) best = missing;
+      if (best === 0) return 0;
+    }
+    return best;
+  }
+
+  function numberToIndex(card, n) { return card.indexOf(n); }
+
+  // A claim is valid only for dabs on numbers that were really called, so the
+  // host never trusts whatever the claiming client believes it dabbed.
+  function validateBingo(card, called, dabs) {
+    const allowed = new Set([12]);
+    card.forEach((n, i) => { if (n && called.has(n)) allowed.add(i); });
+    const dabbed = new Set([12]);
+    (Array.isArray(dabs) ? dabs : []).forEach(i => {
+      if (Number.isInteger(i) && allowed.has(i)) dabbed.add(i);
+    });
+    return completedLines(dabbed);
+  }
+  // --- pure-logic-end ---
+
+  /* ------------------------------------------------------------------ *
+   * state
+   * ------------------------------------------------------------------ */
+  const S = {
+    role: 'menu',        // menu | solo | host | guest
+    phase: 'menu',       // menu | lobby | playing | over
+    meId: 'you',
+    name: 'Guest',
+    wins: 0,
+    code: '',
+    players: [],
+    called: [],
+    calledSet: new Set(),
+    myCard: null,
+    myDabbed: new Set([12]),
+    winners: [],
+    speed: 3200,
+    autoCall: true,
+    paused: false,
+    botCount: 3,
+    botSkill: 'normal',
+    nextCallAt: 0,
+    noteTimer: 0,
+    chat: [],
+    lastChatAt: 0,
+    peer: null,
+    conns: new Map(),
+    guestConn: null
+  };
+
+  let cardEls = [];
+  let cardKey = '';
+  let peerLoader = null;
+  let overlayActions = [];
+
+  const canControl = () => S.role === 'solo' || S.role === 'host';
+
+  function makePlayer(id, name, isBot, skill) {
+    return {
+      id, name,
+      isBot: !!isBot,
+      skill: skill || null,
+      host: false,
+      card: makeCard(),
+      dabbed: new Set([12]),
+      pending: [],
+      claimAt: 0,
+      toGo: 5
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * rendering
+   * ------------------------------------------------------------------ */
+  function render() {
+    const inLobby = S.phase === 'lobby';
+    const inRoom = (S.role === 'host' || S.role === 'guest') && !!S.code;
+    $('lobby').hidden = !inLobby;
+    $('stage').hidden = inLobby;
+    $('chatPanel').hidden = !inRoom;
+    renderChat();
+    syncProgress();
+    renderHud();
+    renderCard();
+    renderCaller();
+    renderRoster();
+    renderButtons();
+    renderLobby();
+  }
+
+  function syncProgress() {
+    if (S.phase !== 'playing' && S.phase !== 'over') return;
+    S.players.forEach(p => {
+      if (!p.card) return;
+      if (p.isBot) p.toGo = bestLine(p.dabbed);
+      else if (p.id === S.meId) p.toGo = bestLine(S.myDabbed);
+      else p.toGo = bestLine(dabbedFromCalled(p.card, S.calledSet));
+    });
+  }
+
+  function renderHud() {
+    const n = S.called[S.called.length - 1];
+    $('hudBall').textContent = n ? letterOf(n) + n : '—';
+    $('hudCalled').textContent = S.called.length + '/75';
+    $('hudPlayers').textContent = String(Math.max(1, S.players.length));
+    $('hudRoomChip').hidden = !S.code;
+    $('hudRoom').textContent = S.code || '—';
+    $('hudWins').textContent = String(S.wins);
+  }
+
+  function renderCaller() {
+    const n = S.called[S.called.length - 1];
+    const ball = $('curBall');
+    const label = ball.querySelector('.bbl');
+    const num = ball.querySelector('.bnum');
+    if (!n) {
+      ball.classList.add('idle');
+      label.textContent = '—';
+      num.textContent = '?';
+    } else {
+      ball.classList.remove('idle');
+      if (num.textContent !== String(n)) {
+        label.textContent = letterOf(n);
+        num.textContent = String(n);
+        ball.classList.remove('pop');
+        void ball.offsetWidth;
+        ball.classList.add('pop');
+      }
+    }
+
+    $('recent').replaceChildren(...S.called.slice(-10).reverse().map(value => {
+      const chip = document.createElement('span');
+      chip.className = 'bingo-mini ' + letterOf(value).toLowerCase();
+      chip.textContent = letterOf(value) + value;
+      return chip;
+    }));
+
+    const toGo = $('toGo');
+    if (S.phase === 'playing') {
+      const missing = bestLine(S.myDabbed);
+      toGo.textContent = missing === 0
+        ? 'Line complete — hit BINGO!'
+        : 'Your best line needs ' + missing + ' more number' + (missing === 1 ? '' : 's');
+      toGo.classList.toggle('ready', missing === 0);
+    } else if (S.phase === 'over') {
+      toGo.textContent = 'Round over';
+      toGo.classList.remove('ready');
+    } else {
+      toGo.textContent = 'Dab every called number on your card';
+      toGo.classList.remove('ready');
+    }
+  }
+
+  function buildCard(card) {
+    cardEls = [];
+    const frag = document.createDocumentFragment();
+    card.forEach((value, i) => {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'bb';
+      cell.dataset.i = String(i);
+      const text = document.createElement('span');
+      text.className = 'bb-num';
+      cell.appendChild(text);
+      cell.addEventListener('click', () => dab(i));
+      cardEls.push(cell);
+      frag.appendChild(cell);
+    });
+    $('card').replaceChildren(frag);
+    cardKey = cardSig(card);
+  }
+
+  function renderCard() {
+    const card = S.myCard;
+    if (!card) {
+      cardEls = [];
+      cardKey = '';
+      $('card').replaceChildren();
+      return;
+    }
+    if (cardSig(card) !== cardKey) buildCard(card);
+    card.forEach((value, i) => {
+      const cell = cardEls[i];
+      if (!cell) return;
+      const free = i === 12;
+      const called = free || S.calledSet.has(value);
+      const dabbed = free || S.myDabbed.has(i);
+      cell.classList.toggle('free', free);
+      cell.classList.toggle('dab', dabbed);
+      cell.classList.toggle('called', called && !dabbed);
+      cell.firstChild.textContent = free ? 'FREE' : String(value);
+      cell.disabled = S.phase !== 'playing';
+      cell.setAttribute('aria-label',
+        (free ? 'Free space' : letterOf(value) + value) +
+        (dabbed ? ', dabbed' : called ? ', called' : ', not called'));
+    });
+  }
+
+  function renderButtons() {
+    const playing = S.phase === 'playing';
+    const control = canControl();
+    const ready = playing && completedLines(S.myDabbed).length > 0;
+    $('claimBtn').disabled = !playing;
+    $('claimBtn').classList.toggle('ready', ready);
+    $('callBtn').hidden = !(playing && control);
+    $('pauseBtn').hidden = !(playing && control && S.autoCall);
+    $('pauseBtn').textContent = S.paused ? '▶ Resume' : '⏸ Pause';
+  }
+
+  function tag(parent, text, cls) {
+    const el = document.createElement('span');
+    el.className = 'bp-tag ' + (cls || '');
+    el.textContent = text;
+    parent.appendChild(el);
+  }
+
+  function playerRow(p) {
+    const li = document.createElement('li');
+    li.className = 'bingo-player' + (p.id === S.meId ? ' me' : '');
+    const name = document.createElement('span');
+    name.className = 'bp-name';
+    name.textContent = p.name;
+    const tags = document.createElement('span');
+    tags.className = 'bp-tags';
+    if (p.id === S.meId) tag(tags, 'you', 'me');
+    if (p.host && p.id !== S.meId) tag(tags, 'host', 'host');
+    if (p.isBot) tag(tags, (SKILLS[p.skill] || SKILLS.normal).label, 'bot');
+    const winner = S.winners[0];
+    if (winner && winner.id === p.id) tag(tags, 'winner', 'won');
+    else if ((S.phase === 'playing' || S.phase === 'over') && p.toGo != null) {
+      tag(tags, p.toGo === 0 ? 'BINGO' : p.toGo + ' to go', '');
+    }
+    li.append(name, tags);
+    return li;
+  }
+
+  function renderRoster() {
+    $('roster').replaceChildren(...S.players.map(playerRow));
+  }
+
+  function renderLobby() {
+    if (S.phase !== 'lobby') return;
+    const control = canControl();
+    $('lobbyCode').textContent = S.code || 'solo';
+    $('inviteUrl').value = inviteLink(S.code) || 'Invite links need the site to be served over http(s).';
+    $('inviteRow').hidden = !S.code;
+    $('lobbyHint').textContent = control
+      ? 'Send friends the invite link — they can join until you start the round.'
+      : 'You are in. The host starts the round once everyone is ready.';
+    $('lobbyCount').textContent = String(S.players.length);
+    $('lobbyPlayers').replaceChildren(...S.players.map(playerRow));
+    $('hostControls').hidden = !control;
+    $('guestWait').hidden = control;
+    if (control) {
+      $('botCount').value = String(S.botCount);
+      $('botSkill').value = S.botSkill;
+      $('callSpeed').value = String(S.speed);
+      $('autoCallChk').checked = S.autoCall;
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * room chat — guests only connect to the host, so the host relays
+   * ------------------------------------------------------------------ */
+  function cleanChat(value) {
+    return String(value == null ? '' : value)
+      .replace(/[\u0000-\u001f\u007f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 140);
+  }
+
+  function renderChat() {
+    const log = $('chatLog');
+    if (!log) return;
+    if (!S.chat.length) {
+      const empty = document.createElement('li');
+      empty.className = 'chat-empty';
+      empty.textContent = 'No messages yet — say hi.';
+      log.replaceChildren(empty);
+      return;
+    }
+    const pinned = log.scrollTop + log.clientHeight >= log.scrollHeight - 8;
+    log.replaceChildren(...S.chat.map(entry => {
+      const li = document.createElement('li');
+      if (entry.sys) {
+        li.className = 'chat-sys';
+        li.textContent = entry.text;
+        return li;
+      }
+      li.className = 'chat-msg' + (entry.me ? ' me' : '');
+      const who = document.createElement('span');
+      who.className = 'chat-who';
+      who.textContent = entry.who;
+      const body = document.createElement('span');
+      body.className = 'chat-text';
+      body.textContent = entry.text;
+      li.append(who, body);
+      return li;
+    }));
+    if (pinned) log.scrollTop = log.scrollHeight;
+  }
+
+  function addChat(entry) {
+    S.chat.push(entry);
+    if (S.chat.length > 80) S.chat.splice(0, S.chat.length - 80);
+    renderChat();
+  }
+
+  function addSystem(text, relay) {
+    addChat({ sys: true, text });
+    if (relay && S.role === 'host') broadcast({ t: 'sys', text });
+  }
+
+  function sendChat() {
+    const input = $('chatInput');
+    if (!input) return;
+    if (S.role !== 'host' && S.role !== 'guest') return;
+    const text = cleanChat(input.value);
+    if (!text) return;
+    if (Date.now() - S.lastChatAt < 500) return;
+    S.lastChatAt = Date.now();
+    input.value = '';
+    addChat({ who: S.name, text, me: true });
+    if (S.role === 'guest') safeSend(S.guestConn, { t: 'chat', text });
+    else broadcast({ t: 'chat', who: S.name, text });
+  }
+
+  function setNote(message) {
+    const el = $('note');
+    if (!el) return;
+    el.textContent = message;
+    clearTimeout(S.noteTimer);
+    S.noteTimer = setTimeout(() => { el.textContent = ''; }, 5200);
+  }
+
+  function setActions(nodes) {
+    overlayActions = nodes.filter(Boolean);
+    $('ovActions').replaceChildren(...overlayActions);
+  }
+
+  function showOverlay(icon, title, text) {
+    $('ovIco').textContent = icon;
+    $('ovTitle').textContent = title;
+    $('ovText').textContent = text;
+    $('ovActions').replaceChildren(...overlayActions);
+    $('overlay').classList.add('show');
+  }
+
+  function hideOverlay() { $('overlay').classList.remove('show'); }
+
+  function btn(label, cls, onClick, opts) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'btn ' + cls;
+    el.textContent = label;
+    if (opts && opts.disabled) el.disabled = true;
+    el.addEventListener('click', onClick);
+    return el;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * card interaction
+   * ------------------------------------------------------------------ */
+  function dab(i) {
+    if (S.phase !== 'playing' || !S.myCard) return;
+    if (i === 12) return;
+    const value = S.myCard[i];
+    if (!S.calledSet.has(value)) {
+      const cell = cardEls[i];
+      if (cell) {
+        cell.classList.remove('shake');
+        void cell.offsetWidth;
+        cell.classList.add('shake');
+      }
+      setNote(letterOf(value) + value + ' has not been called yet.');
+      return;
+    }
+    if (S.myDabbed.has(i)) S.myDabbed.delete(i);
+    else S.myDabbed.add(i);
+    renderCard();
+    renderCaller();
+    renderButtons();
+  }
+
+  function markLine(line) {
+    (line || []).forEach(i => { if (cardEls[i]) cardEls[i].classList.add('win'); });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * round engine (solo + host authority)
+   * ------------------------------------------------------------------ */
+  function setBots(count, skill, quiet) {
+    if (!canControl() || S.phase !== 'lobby') return;
+    S.botCount = count;
+    S.botSkill = skill;
+    S.players = S.players.filter(p => !p.isBot);
+    const used = new Set(S.players.map(p => p.name));
+    for (let i = 0; i < count; i++) {
+      let name = BOT_NAMES.find(candidate => !used.has(candidate)) || 'Bot ' + (i + 1);
+      used.add(name);
+      S.players.push(makePlayer('bot-' + i + '-' + Math.random().toString(36).slice(2, 7), name, true, skill));
+    }
+    if (!quiet) {
+      syncProgress();
+      broadcastLobby();
+      render();
+    }
+  }
+
+  function startRound() {
+    if (!canControl()) {
+      setNote('Only the host can start the round.');
+      return;
+    }
+    const taken = [];
+    S.players.forEach(p => {
+      p.card = uniqueCard(taken);
+      taken.push(p.card);
+      p.dabbed = new Set([12]);
+      p.pending = [];
+      p.claimAt = 0;
+      p.toGo = 5;
+    });
+    const me = S.players.find(p => p.id === S.meId);
+    if (!me) {
+      setNote('You are not seated in this round.');
+      return;
+    }
+    S.myCard = me.card;
+    S.myDabbed = new Set([12]);
+    S.called = [];
+    S.calledSet = new Set();
+    S.winners = [];
+    S.phase = 'playing';
+    S.paused = false;
+    S.nextCallAt = Date.now() + 1000;
+    cardKey = '';
+    hideOverlay();
+    syncProgress();
+    render();
+
+    if (S.role === 'host') {
+      S.conns.forEach((conn, id) => {
+        const p = S.players.find(x => x.id === id);
+        if (p) {
+          safeSend(conn, {
+            t: 'start',
+            card: p.card,
+            speed: S.speed,
+            autoCall: S.autoCall,
+            players: publicPlayers()
+          });
+        }
+      });
+    }
+  }
+
+  function callBall() {
+    if (!canControl() || S.phase !== 'playing') return;
+    const remaining = [];
+    for (let n = 1; n <= 75; n++) if (!S.calledSet.has(n)) remaining.push(n);
+    if (!remaining.length) { finishDraw(); return; }
+
+    const n = remaining[Math.floor(Math.random() * remaining.length)];
+    S.called.push(n);
+    S.calledSet.add(n);
+    S.nextCallAt = Date.now() + S.speed;
+
+    S.players.forEach(p => {
+      if (!p.isBot) return;
+      const skill = SKILLS[p.skill] || SKILLS.normal;
+      p.pending.push({ n, at: Date.now() + randBetween(skill.react) });
+    });
+
+    if (S.role === 'host') broadcast({ t: 'call', n, called: S.called });
+    syncProgress();
+    if (S.role === 'host') broadcastRoster();
+    render();
+  }
+
+  function tick() {
+    if (!canControl() || S.phase !== 'playing') return;
+    const t = Date.now();
+
+    for (const p of S.players) {
+      if (!p.isBot) continue;
+      if (p.pending.length) {
+        const due = p.pending.filter(item => item.at <= t);
+        if (due.length) {
+          p.pending = p.pending.filter(item => item.at > t);
+          due.forEach(item => {
+            const idx = numberToIndex(p.card, item.n);
+            if (idx >= 0) p.dabbed.add(idx);
+          });
+          p.toGo = bestLine(p.dabbed);
+        }
+      }
+      const lines = completedLines(p.dabbed);
+      if (lines.length) {
+        const skill = SKILLS[p.skill] || SKILLS.normal;
+        if (!p.claimAt) p.claimAt = t + randBetween(skill.claim);
+        if (t >= p.claimAt) { finishRound(p, lines[0]); return; }
+      } else {
+        p.claimAt = 0;
+      }
+    }
+
+    if (S.autoCall && !S.paused && t >= S.nextCallAt) callBall();
+  }
+
+  function claim() {
+    if (S.phase !== 'playing' || !S.myCard) return;
+    const lines = completedLines(S.myDabbed);
+    if (!lines.length) {
+      const missing = bestLine(S.myDabbed);
+      setNote('Not a bingo yet — dab ' + missing + ' more number' + (missing === 1 ? '' : 's') + ' on your best line.');
+      return;
+    }
+    if (S.role === 'guest') {
+      safeSend(S.guestConn, { t: 'claim', dabs: Array.from(S.myDabbed) });
+      setNote('Checking your card with the host…');
+      return;
+    }
+    attemptClaim(S.meId, Array.from(S.myDabbed));
+  }
+
+  function attemptClaim(id, dabs) {
+    if (S.phase !== 'playing') return;
+    const p = S.players.find(x => x.id === id);
+    if (!p) return;
+    const dabList = Array.isArray(dabs) ? dabs : Array.from(p.dabbed);
+    const lines = validateBingo(p.card, S.calledSet, dabList);
+    if (!lines.length) {
+      const reason = 'No complete line yet — keep dabbing.';
+      if (id === S.meId) setNote(reason);
+      else {
+        const conn = S.conns.get(id);
+        if (conn) safeSend(conn, { t: 'claimResult', ok: false, reason });
+      }
+      return;
+    }
+    finishRound(p, lines[0]);
+  }
+
+  function finishRound(winner, line) {
+    if (S.phase !== 'playing') return;
+    S.phase = 'over';
+    S.winners = [{ id: winner.id, name: winner.name, line: line.slice() }];
+    const mine = winner.id === S.meId;
+    if (mine) {
+      S.wins += 1;
+      LS.set('gh.bingo.wins', S.wins);
+    }
+    syncProgress();
+    render();
+    if (S.role === 'host') {
+      broadcast({
+        t: 'over',
+        winner: { id: winner.id, name: winner.name, line: line.slice() },
+        called: S.called
+      });
+    }
+    showResult(mine, winner, line);
+  }
+
+  function finishDraw() {
+    S.phase = 'over';
+    S.winners = [];
+    render();
+    if (S.role === 'host') broadcast({ t: 'over', winner: null, called: S.called });
+    setActions([
+      canControl() ? btn('↻ Next round', 'btn-primary', startRound) : null,
+      btn('☰ Main menu', 'btn-ghost', leaveRoom)
+    ].filter(Boolean));
+    showOverlay('🎟️', 'All 75 numbers called', 'Nobody claimed a line in time. Start another round and dab faster.');
+  }
+
+  function showResult(mine, winner, line) {
+    if (mine) markLine(line);
+    const calls = S.called.length;
+    const name = winner && winner.name ? winner.name : 'Someone';
+    const title = mine ? 'BINGO! You win' : name + ' got bingo first';
+    const text = mine
+      ? 'You completed a line in ' + calls + ' calls. ' +
+        (canControl() ? 'Start another round when you are ready.' : 'Wait for the host to start the next round.')
+      : name + ' finished a line after ' + calls + ' calls. ' +
+        (canControl() ? 'Try again — start the next round.' : 'The host can start another round.');
+
+    const actions = [];
+    if (canControl()) actions.push(btn('↻ Next round', 'btn-primary', startRound));
+    else actions.push(btn('⏳ Waiting for host', 'btn-ghost', () => {}, { disabled: true }));
+    actions.push(btn('☰ Main menu', 'btn-ghost', leaveRoom));
+    setActions(actions);
+    showOverlay(mine ? '🎉' : '🎟️', title, text);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * menus
+   * ------------------------------------------------------------------ */
+  function menuNote(message) {
+    const el = $('menuNote');
+    if (el) el.textContent = message;
+  }
+
+  function selectBox(id, options, value) {
+    const select = document.createElement('select');
+    select.className = 'bingo-select';
+    select.id = id;
+    options.forEach(option => {
+      const el = document.createElement('option');
+      el.value = option[0];
+      el.textContent = option[1];
+      select.appendChild(el);
+    });
+    select.value = value;
+    return select;
+  }
+
+  function showMenu(invite) {
+    teardownNet();
+    S.role = 'menu';
+    S.phase = 'menu';
+    S.code = '';
+    S.players = [];
+    S.called = [];
+    S.calledSet = new Set();
+    S.myCard = null;
+    S.myDabbed = new Set([12]);
+    S.winners = [];
+    S.chat = [];
+    S.lastChatAt = 0;
+    S.meId = 'you';
+    cardKey = '';
+    render();
+
+    const form = document.createElement('div');
+    form.className = 'ov-form';
+
+    const nameInput = document.createElement('input');
+    nameInput.className = 'bingo-input';
+    nameInput.maxLength = 16;
+    nameInput.value = S.name;
+    nameInput.placeholder = 'Your name';
+    nameInput.setAttribute('aria-label', 'Your name');
+    nameInput.addEventListener('input', () => {
+      const cleaned = cleanName(nameInput.value);
+      if (cleaned) S.name = cleaned;
+    });
+
+    const botSelect = selectBox('menuBots', [
+      ['0', 'No bots'], ['1', '1 bot'], ['2', '2 bots'], ['3', '3 bots'], ['4', '4 bots'], ['5', '5 bots']
+    ], String(S.botCount));
+    const skillSelect = selectBox('menuSkill', [
+      ['easy', 'Casual'], ['normal', 'Sharp'], ['hard', 'Ruthless']
+    ], S.botSkill);
+    botSelect.addEventListener('change', () => { S.botCount = Number(botSelect.value); });
+    skillSelect.addEventListener('change', () => { S.botSkill = skillSelect.value; });
+
+    const botField = document.createElement('label');
+    botField.className = 'bingo-field';
+    const botLabel = document.createElement('span');
+    botLabel.textContent = 'Bots';
+    botField.append(botLabel, botSelect);
+
+    const skillField = document.createElement('label');
+    skillField.className = 'bingo-field';
+    const skillLabel = document.createElement('span');
+    skillLabel.textContent = 'Skill';
+    skillField.append(skillLabel, skillSelect);
+
+    const settings = document.createElement('div');
+    settings.className = 'ov-row';
+    settings.append(botField, skillField);
+
+    const modeRow = document.createElement('div');
+    modeRow.className = 'ov-row';
+    modeRow.append(
+      btn('🤖 Play vs bots', 'btn-primary', () => {
+        commitName(nameInput.value);
+        startSolo();
+      }),
+      btn('🏠 Host a room', 'btn-ghost', () => {
+        commitName(nameInput.value);
+        createRoomFlow();
+      })
+    );
+
+    const sep = document.createElement('div');
+    sep.className = 'ov-sep';
+    sep.textContent = 'or join a friend';
+
+    const codeInput = document.createElement('input');
+    codeInput.className = 'bingo-input';
+    codeInput.id = 'joinCode';
+    codeInput.maxLength = 4;
+    codeInput.placeholder = 'CODE';
+    codeInput.value = invite || '';
+    codeInput.setAttribute('aria-label', 'Room code');
+    codeInput.style.textTransform = 'uppercase';
+    codeInput.style.letterSpacing = '3px';
+    codeInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitName(nameInput.value);
+        joinRoomFlow(codeInput.value);
+      }
+    });
+
+    const joinRow = document.createElement('div');
+    joinRow.className = 'ov-row';
+    joinRow.append(
+      codeInput,
+      btn('🔗 Join room', 'btn-green', () => {
+        commitName(nameInput.value);
+        joinRoomFlow(codeInput.value);
+      })
+    );
+
+    const note = document.createElement('p');
+    note.className = 'ov-note';
+    note.id = 'menuNote';
+
+    form.append(nameInput, settings, modeRow, sep, joinRow, note);
+    setActions([form]);
+    showOverlay(
+      '🎟️',
+      invite ? 'Invited to room ' + invite : 'Bingo',
+      invite
+        ? 'Add a name, then join the room — the host starts the first round.'
+        : 'Play solo against bots, host a private room, or type a friend’s room code.'
+    );
+  }
+
+  function commitName(value) {
+    const cleaned = cleanName(value);
+    if (cleaned) S.name = cleaned;
+    LS.set('gh.bingo.name', S.name);
+  }
+
+  function startSolo() {
+    LS.set('gh.bingo.name', S.name);
+    LS.set('gh.bingo.bots', S.botCount);
+    teardownNet();
+    S.role = 'solo';
+    S.phase = 'lobby';
+    S.code = '';
+    S.meId = 'you';
+    S.called = [];
+    S.calledSet = new Set();
+    S.winners = [];
+    S.paused = false;
+    S.players = [Object.assign(makePlayer('you', S.name, false, null), { host: true })];
+    setBots(S.botCount, S.botSkill, true);
+    startRound();
+  }
+
+  function leaveRoom() {
+    if (S.role === 'guest') safeSend(S.guestConn, { t: 'bye' });
+    if (S.role === 'host') broadcast({ t: 'bye' });
+    showMenu();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * networking (PeerJS public broker, host is authoritative)
+   * ------------------------------------------------------------------ */
+  function loadPeer() {
+    if (window.Peer) return Promise.resolve(window.Peer);
+    if (peerLoader) return peerLoader;
+    peerLoader = new Promise((resolve, reject) => {
+      let index = 0;
+      const tryNext = () => {
+        if (index >= PEER_SRC.length) {
+          peerLoader = null;
+          reject(new Error('peer library unavailable'));
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = PEER_SRC[index++];
+        script.async = true;
+        script.onload = () => (window.Peer ? resolve(window.Peer) : tryNext());
+        script.onerror = () => { script.remove(); tryNext(); };
+        document.head.appendChild(script);
+      };
+      tryNext();
+    });
+    return peerLoader;
+  }
+
+  function makeCode() {
+    let code = '';
+    for (let i = 0; i < 4; i++) code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    return code;
+  }
+
+  function inviteLink(code) {
+    if (!code) return '';
+    try {
+      const url = new URL(location.href);
+      url.search = '?room=' + code;
+      url.hash = '';
+      return url.toString();
+    } catch (e) { return ''; }
+  }
+
+  const safeSend = (conn, msg) => {
+    if (!conn) return;
+    try { conn.send(msg); } catch (e) { /* socket closing */ }
+  };
+
+  const broadcast = msg => {
+    if (S.role !== 'host') return;
+    S.conns.forEach(conn => safeSend(conn, msg));
+  };
+
+  function publicPlayers() {
+    return S.players.map(p => ({
+      id: p.id,
+      name: p.name,
+      isBot: !!p.isBot,
+      skill: p.skill || null,
+      host: !!p.host,
+      toGo: (S.phase === 'playing' || S.phase === 'over') ? p.toGo : null
+    }));
+  }
+
+  function broadcastLobby() {
+    if (S.role !== 'host') return;
+    syncProgress();
+    broadcast({ t: 'lobby', players: publicPlayers(), speed: S.speed, autoCall: S.autoCall });
+  }
+
+  function broadcastRoster() {
+    if (S.role !== 'host') return;
+    syncProgress();
+    broadcast({ t: 'roster', players: publicPlayers() });
+  }
+
+  function teardownNet() {
+    S.conns.forEach(conn => { try { conn.close(); } catch (e) { /* already gone */ } });
+    S.conns.clear();
+    if (S.guestConn) {
+      try { S.guestConn.close(); } catch (e) { /* already gone */ }
+      S.guestConn = null;
+    }
+    if (S.peer) {
+      try { S.peer.destroy(); } catch (e) { /* already gone */ }
+      S.peer = null;
+    }
+    S.role = 'menu';
+  }
+
+  function netError(reason) {
+    setActions([
+      btn('🤖 Play vs bots instead', 'btn-primary', () => { hideOverlay(); startSolo(); }),
+      btn('☰ Main menu', 'btn-ghost', () => showMenu())
+    ]);
+    showOverlay(
+      '📡',
+      'No room right now',
+      'Could not reach the peer network' + (reason ? ' (' + reason + ')' : '') +
+      '. Rooms need an internet connection — solo against bots works offline.'
+    );
+  }
+
+  async function createRoomFlow() {
+    showOverlay('📡', 'Opening a room…', 'Connecting to the free peer network so friends can join. This needs an internet connection.');
+    setActions([btn('Cancel', 'btn-ghost', () => showMenu())]);
+
+    let Peer;
+    try {
+      Peer = await loadPeer();
+    } catch (err) {
+      netError('library blocked or offline');
+      return;
+    }
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = makeCode();
+      const peer = new Peer('gh-bingo-' + code);
+      const result = await new Promise(resolve => {
+        const timer = setTimeout(() => resolve({ ok: false, reason: 'timeout' }), 12000);
+        peer.once('open', () => { clearTimeout(timer); resolve({ ok: true }); });
+        peer.once('error', err => {
+          clearTimeout(timer);
+          resolve({ ok: false, reason: (err && err.type) || 'error' });
+        });
+      });
+
+      if (result.ok) {
+        S.peer = peer;
+        S.code = code;
+        S.role = 'host';
+        S.phase = 'lobby';
+        S.meId = 'you';
+        S.players = [Object.assign(makePlayer('you', S.name, false, null), { host: true })];
+        S.called = [];
+        S.calledSet = new Set();
+        S.winners = [];
+        S.myCard = null;
+        S.paused = false;
+        setBots(S.botCount, S.botSkill, true);
+        wireHostPeer(peer);
+        hideOverlay();
+        render();
+        setNote('Room ' + code + ' is open — share the invite link.');
+        return;
+      }
+
+      try { peer.destroy(); } catch (e) { /* never opened */ }
+      if (result.reason !== 'unavailable-id') {
+        netError(result.reason);
+        return;
+      }
+    }
+    netError('could not reserve a room code');
+  }
+
+  function wireHostPeer(peer) {
+    peer.on('connection', conn => {
+      S.conns.set(conn.peer, conn);
+      conn.on('open', () => { conn.on('data', msg => onHostMessage(conn, msg)); });
+      conn.on('close', () => removeGuest(conn.peer));
+      conn.on('error', () => removeGuest(conn.peer));
+    });
+    peer.on('error', err => {
+      if (err && err.type === 'network') setNote('Peer network hiccup — trying to reconnect…');
+    });
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) { /* gone */ } });
+  }
+
+  function onHostMessage(conn, msg) {
+    if (!msg || typeof msg !== 'object') return;
+
+    if (msg.t === 'join') {
+      if (S.phase !== 'lobby') {
+        safeSend(conn, { t: 'error', msg: 'That round already started — ask the host for a new room.' });
+        setTimeout(() => { try { conn.close(); } catch (e) { /* gone */ } }, 400);
+        return;
+      }
+      let player = S.players.find(p => p.id === conn.peer);
+      if (!player) {
+        player = makePlayer(conn.peer, cleanName(msg.name) || 'Guest', false, null);
+        player.card = uniqueCard(S.players.map(p => p.card).filter(Boolean));
+        S.players.push(player);
+      } else {
+        const renamed = cleanName(msg.name);
+        if (renamed) player.name = renamed;
+      }
+      safeSend(conn, {
+        t: 'welcome',
+        youId: conn.peer,
+        card: player.card,
+        code: S.code,
+        speed: S.speed,
+        autoCall: S.autoCall,
+        players: publicPlayers()
+      });
+      broadcastLobby();
+      render();
+      setNote(player.name + ' joined the room.');
+      addSystem(player.name + ' joined the room', true);
+      return;
+    }
+
+    const player = S.players.find(p => p.id === conn.peer);
+    if (!player) return;
+    if (msg.t === 'claim') attemptClaim(player.id, msg.dabs);
+    else if (msg.t === 'chat') {
+      const text = cleanChat(msg.text);
+      if (!text) return;
+      if (Date.now() - (player.lastChatAt || 0) < 500) return;
+      player.lastChatAt = Date.now();
+      addChat({ who: player.name, text });
+      S.conns.forEach((other, id) => {
+        if (id !== conn.peer) safeSend(other, { t: 'chat', who: player.name, text });
+      });
+    }
+    else if (msg.t === 'bye') removeGuest(conn.peer, false);
+  }
+
+  function removeGuest(peerId, announce) {
+    const player = S.players.find(p => p.id === peerId);
+    const conn = S.conns.get(peerId);
+    S.conns.delete(peerId);
+    if (conn) { try { conn.close(); } catch (e) { /* gone */ } }
+    if (!player) return;
+    S.players = S.players.filter(p => p.id !== peerId);
+    if (announce !== false) setNote(player.name + ' left the room.');
+    addSystem(player.name + ' left the room', true);
+    if (S.phase === 'lobby') broadcastLobby();
+    else if (S.phase === 'playing') broadcastRoster();
+    render();
+  }
+
+  async function joinRoomFlow(rawCode) {
+    const code = String(rawCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    if (code.length !== 4) {
+      menuNote('That room code needs 4 letters or digits.');
+      return;
+    }
+
+    showOverlay('📡', 'Joining room ' + code + '…', 'Connecting to the host. This needs an internet connection.');
+    setActions([btn('Cancel', 'btn-ghost', () => showMenu())]);
+
+    let Peer;
+    try {
+      Peer = await loadPeer();
+    } catch (err) {
+      netError('library blocked or offline');
+      return;
+    }
+
+    const peer = new Peer();
+    const ready = await new Promise(resolve => {
+      const timer = setTimeout(() => resolve(false), 12000);
+      peer.once('open', () => { clearTimeout(timer); resolve(true); });
+      peer.once('error', () => { clearTimeout(timer); resolve(false); });
+    });
+    if (!ready) {
+      try { peer.destroy(); } catch (e) { /* never opened */ }
+      netError('signalling server unreachable');
+      return;
+    }
+
+    const conn = peer.connect('gh-bingo-' + code, { reliable: true });
+    S.peer = peer;
+    S.role = 'guest';
+    S.code = code;
+    S.meId = peer.id;
+    S.guestConn = conn;
+
+    let joined = false;
+    const failTimer = setTimeout(() => {
+      if (joined) return;
+      try { peer.destroy(); } catch (e) { /* gone */ }
+      netError('room ' + code + ' not found');
+    }, 14000);
+
+    conn.on('open', () => safeSend(conn, { t: 'join', name: S.name }));
+    conn.on('data', msg => {
+      if (!joined && msg && msg.t === 'welcome') {
+        joined = true;
+        clearTimeout(failTimer);
+      }
+      onGuestMessage(msg);
+    });
+    conn.on('close', () => {
+      clearTimeout(failTimer);
+      if (joined) hostGone();
+    });
+    peer.on('error', err => {
+      if (!joined && err && err.type === 'peer-unavailable') {
+        clearTimeout(failTimer);
+        peer.destroy();
+        netError('room ' + code + ' not found');
+      }
+    });
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) { /* gone */ } });
+  }
+
+  function onGuestMessage(msg) {
+    if (!msg || typeof msg !== 'object') return;
+
+    switch (msg.t) {
+      case 'welcome':
+        S.players = msg.players || [];
+        S.myCard = msg.card;
+        S.myDabbed = new Set([12]);
+        S.code = msg.code || S.code;
+        S.speed = msg.speed || S.speed;
+        S.autoCall = msg.autoCall !== false;
+        S.phase = 'lobby';
+        cardKey = '';
+        hideOverlay();
+        render();
+        setNote('Joined room ' + S.code + '.');
+        break;
+
+      case 'lobby':
+        S.players = msg.players || [];
+        if (msg.speed) S.speed = msg.speed;
+        if (typeof msg.autoCall === 'boolean') S.autoCall = msg.autoCall;
+        if (S.phase !== 'playing') S.phase = 'lobby';
+        render();
+        break;
+
+      case 'start':
+        S.players = msg.players || S.players;
+        S.myCard = msg.card;
+        S.myDabbed = new Set([12]);
+        S.called = [];
+        S.calledSet = new Set();
+        S.winners = [];
+        S.phase = 'playing';
+        S.speed = msg.speed || S.speed;
+        S.autoCall = msg.autoCall !== false;
+        cardKey = '';
+        hideOverlay();
+        render();
+        break;
+
+      case 'call':
+        S.called = Array.isArray(msg.called) ? msg.called : S.called.concat(msg.n);
+        S.calledSet = new Set(S.called);
+        render();
+        break;
+
+      case 'roster':
+        S.players = msg.players || S.players;
+        renderRoster();
+        break;
+
+      case 'over': {
+        S.phase = 'over';
+        S.winners = msg.winner ? [msg.winner] : [];
+        if (Array.isArray(msg.called)) {
+          S.called = msg.called;
+          S.calledSet = new Set(msg.called);
+        }
+        const mine = !!(msg.winner && msg.winner.id === S.meId);
+        if (mine) {
+          S.wins += 1;
+          LS.set('gh.bingo.wins', S.wins);
+        }
+        render();
+        if (msg.winner) showResult(mine, msg.winner, msg.winner.line);
+        else {
+          setActions([btn('☰ Main menu', 'btn-ghost', leaveRoom)]);
+          showOverlay('🎟️', 'All 75 numbers called', 'Nobody claimed a line in time.');
+        }
+        break;
+      }
+
+      case 'chat':
+        addChat({ who: cleanChat(msg.who) || 'Guest', text: cleanChat(msg.text) });
+        break;
+
+      case 'sys':
+        addChat({ sys: true, text: cleanChat(msg.text) });
+        break;
+
+      case 'claimResult':
+        setNote(msg.reason || 'Not a bingo yet.');
+        break;
+
+      case 'error':
+        teardownNet();
+        S.phase = 'menu';
+        S.players = [];
+        S.myCard = null;
+        cardKey = '';
+        render();
+        setActions([btn('☰ Main menu', 'btn-primary', () => showMenu())]);
+        showOverlay('📡', 'Room unavailable', msg.msg || 'The host closed the room.');
+        break;
+    }
+  }
+
+  function hostGone() {
+    teardownNet();
+    S.phase = 'menu';
+    S.players = [];
+    S.myCard = null;
+    S.winners = [];
+    cardKey = '';
+    render();
+    setActions([btn('☰ Main menu', 'btn-primary', () => showMenu())]);
+    showOverlay('📡', 'Host disconnected', 'The room closed, so the round ended. Host your own room to keep playing.');
+  }
+
+  /* ------------------------------------------------------------------ *
+   * wiring
+   * ------------------------------------------------------------------ */
+  async function copyInvite() {
+    const link = inviteLink(S.code);
+    if (!link) { setNote('No invite link for a solo game.'); return; }
+    try {
+      await navigator.clipboard.writeText(link);
+      setNote('Invite link copied — send it to a friend.');
+    } catch (e) {
+      const input = $('inviteUrl');
+      input.focus();
+      input.select();
+      setNote('Press Ctrl/Cmd + C to copy the link.');
+    }
+  }
+
+  function wireUI() {
+    $('claimBtn').addEventListener('click', claim);
+    $('callBtn').addEventListener('click', () => { if (canControl()) callBall(); });
+    $('pauseBtn').addEventListener('click', () => {
+      if (!canControl()) return;
+      S.paused = !S.paused;
+      if (!S.paused) S.nextCallAt = Date.now() + 700;
+      render();
+    });
+    $('menuBtn').addEventListener('click', leaveRoom);
+    $('leaveBtn').addEventListener('click', leaveRoom);
+    $('copyBtn').addEventListener('click', copyInvite);
+    $('startGameBtn').addEventListener('click', startRound);
+    $('botCount').addEventListener('change', e => setBots(Number(e.target.value), S.botSkill));
+    $('botSkill').addEventListener('change', e => setBots(S.botCount, e.target.value));
+    $('callSpeed').addEventListener('change', e => {
+      S.speed = Number(e.target.value);
+      broadcastLobby();
+    });
+    $('autoCallChk').addEventListener('change', e => {
+      S.autoCall = e.target.checked;
+      S.nextCallAt = Date.now() + 600;
+    });
+    $('chatForm').addEventListener('submit', e => {
+      e.preventDefault();
+      sendChat();
+    });
+
+    window.addEventListener('keydown', e => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag)) return;
+      if (e.key === 'b' || e.key === 'B') { e.preventDefault(); claim(); }
+      else if ((e.key === 'n' || e.key === 'N') && S.phase === 'over' && canControl()) startRound();
+      else if (e.key === 'Escape' && (S.role === 'host' || S.role === 'guest')) leaveRoom();
+    });
+  }
+
+  function boot() {
+    S.name = cleanName(LS.get('gh.bingo.name', '')) || 'Guest ' + Math.floor(100 + Math.random() * 900);
+    S.wins = Number(LS.get('gh.bingo.wins', 0)) || 0;
+    const savedBots = Number(LS.get('gh.bingo.bots', 3));
+    S.botCount = Number.isFinite(savedBots) ? Math.max(0, Math.min(5, savedBots)) : 3;
+
+    wireUI();
+    render();
+
+    const invited = (new URLSearchParams(location.search).get('room') || '')
+      .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    showMenu(invited);
+    LS.set('gh.bingo.name', S.name);
+
+    setInterval(tick, 180);
+  }
+
+  boot();
+})();
+</script>
+
+</body>
+</html>
