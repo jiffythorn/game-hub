@@ -81,11 +81,20 @@
   let touchGuard = false, guardTimer = null;
 
   function sizeCells() {
-    const stage = document.querySelector('.stage');
+    const stage = grid.parentElement;
     const pad = parseFloat(getComputedStyle(grid).paddingLeft) || 0;
-    const avail = stage.clientWidth - pad * 2 - 4;
-    const fit = Math.floor((avail - (L.c - 1) * 3) / L.c);
-    grid.style.setProperty('--cs', Math.max(16, Math.min(40, fit)) + 'px');
+    const gap = parseFloat(getComputedStyle(grid).gap) || 3;
+    const frame = pad * 2 + 4;
+
+    const availW = stage.clientWidth - frame;
+    const fitW = Math.floor((availW - (L.c - 1) * gap) / L.c);
+
+    const top = stage.getBoundingClientRect().top + window.scrollY;
+    const availH = window.innerHeight - top - 8 - frame;
+    const fitH = Math.floor((availH - (L.r - 1) * gap) / L.r);
+
+    const fit = Math.min(fitW, fitH);
+    grid.style.setProperty('--cs', Math.max(8, Math.min(40, fit)) + 'px');
   }
 
   const winKey = 'gh.mines.wins';
@@ -112,9 +121,9 @@
     $('cleared').textContent = '0/' + total;
     $('wins').textContent = localStorage.getItem(winKey) || 0;
 
-    grid.style.gridTemplateColumns = `repeat(${L.c}, auto)`;
-    sizeCells();
+    grid.style.gridTemplateColumns = `repeat(${L.c}, var(--cs))`;
     grid.innerHTML = '';
+    sizeCells();
     cells.forEach((_, i) => {
       const b = document.createElement('button');
       b.className = 'cell';

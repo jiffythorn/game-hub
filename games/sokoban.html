@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sokoban — Game Hub</title>
-<meta name="description" content="Play Sokoban free online. Push every crate onto a target across eight hand-built levels, with undo, move and push counters. Download to play offline.">
+<meta name="description" content="Play Sokoban free online. Push every crate onto a target across eight hand-built levels, with undo, move and push counters, and a hint system. Download to play offline.">
 <meta name="theme-color" content="#0a0d14">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
 <link rel="stylesheet" href="../style.css">
@@ -25,10 +25,11 @@
     <div class="big">📦</div>
     <div class="grow">
       <h1>Sokoban</h1>
-      <p>Push every crate onto a target. You can only push, never pull — so plan each shove and use undo when a crate gets stuck in a corner.</p>
+      <p>Push every crate onto a target. You can only push, never pull — so plan each shove, use undo when a crate gets stuck, or ask for a hint.</p>
     </div>
     <div class="acts">
       <a class="btn btn-green btn-sm" href="../downloads/sokoban.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="hintBtn">💡 Hint</button>
       <button class="btn btn-ghost btn-sm" id="undoBtn">↶ Undo</button>
       <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
     </div>
@@ -40,6 +41,7 @@
     </div>
     <div class="chip on">Moves <b id="moves">0</b></div>
     <div class="chip">Pushes <b id="pushes">0</b></div>
+    <div class="chip">Hints <b id="hints">0</b></div>
     <div class="chip">Best <b id="best">—</b></div>
     <div class="chip">Solved <b id="solved">0/8</b></div>
   </div>
@@ -56,6 +58,8 @@
     </div>
   </div>
 
+  <p class="hint-note" id="hintNote" aria-live="polite"></p>
+
   <div class="touch-pad">
     <button type="button" data-dir="left" aria-label="Move left">←</button>
     <button type="button" data-dir="up" aria-label="Move up">↑</button>
@@ -66,6 +70,7 @@
   <div class="controls-hint">
     <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
     <span><kbd>Z</kbd> undo</span>
+    <span><kbd>H</kbd> hint</span>
     <span><kbd>R</kbd> restart</span>
     <span>Swipe on mobile</span>
   </div>
@@ -153,9 +158,16 @@
   ];
 
   const DIRS = {up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1]};
+  const DIR_LIST = [
+    {name: 'up', dr: -1, dc: 0},
+    {name: 'down', dr: 1, dc: 0},
+    {name: 'left', dr: 0, dc: -1},
+    {name: 'right', dr: 0, dc: 1}
+  ];
 
-  let rows = 0, cols = 0, walls, goals, boxes, player;
+  let rows = 0, cols = 0, walls, goals, boxes, player, goalDist;
   let moves = 0, pushes = 0, history = [], solved = false, levelIndex = 0;
+  let hintCount = 0, lastHintKey = null;
   let best = {};
   let overlayAction = () => {};
 
@@ -196,6 +208,7 @@
         }
       }
     }
+    goalDist = buildGoalDistances();
   }
 
   function render() {
@@ -242,6 +255,7 @@
   function updateHud() {
     $('moves').textContent = moves;
     $('pushes').textContent = pushes;
+    $('hints').textContent = hintCount;
     $('best').textContent = best[levelIndex] ? best[levelIndex] + ' moves' : '—';
     $('solved').textContent = solvedCount() + '/' + LEVELS.length;
     $('levelSel').value = String(levelIndex);
@@ -272,6 +286,10 @@
     pushes = 0;
     history = [];
     solved = false;
+    hintCount = 0;
+    lastHintKey = null;
+    clearHintMarks();
+    $('hintNote').textContent = '';
     overlay.classList.remove('show');
     boardEl.style.setProperty('--cols', cols);
     boardEl.style.setProperty('--rows', rows);
@@ -289,6 +307,9 @@
     if (walls.has(key(nr, nc))) return;
 
     overlay.classList.remove('show');
+    clearHintMarks();
+    lastHintKey = null;
+    $('hintNote').textContent = '';
     const boxIndex = boxes.findIndex(b => b.r === nr && b.c === nc);
 
     if (boxIndex >= 0) {
@@ -316,6 +337,9 @@
   function checkWin() {
     if (!boxes.every(b => goals.has(key(b.r, b.c)))) return;
     solved = true;
+    clearHintMarks();
+    lastHintKey = null;
+    $('hintNote').textContent = '';
     const previous = best[levelIndex];
     const isBest = !previous || moves < previous;
     if (isBest) {
@@ -342,6 +366,9 @@
     moves = prev.moves;
     pushes = prev.pushes;
     solved = false;
+    lastHintKey = null;
+    clearHintMarks();
+    $('hintNote').textContent = '';
     overlay.classList.remove('show');
     render();
     updateHud();
@@ -349,6 +376,268 @@
 
   function restart() {
     loadLevel(levelIndex);
+  }
+
+  function note(text) {
+    $('hintNote').textContent = text;
+  }
+
+  function clearHintMarks() {
+    boardEl.querySelectorAll('.hint-step, .hint-push').forEach(el => {
+      el.classList.remove('hint-step', 'hint-push');
+    });
+  }
+
+  function cellAt(r, c) {
+    return boardEl.children[r * cols + c];
+  }
+
+  function boxKey(b) {
+    return key(b.r, b.c);
+  }
+
+  function sortBoxes(list) {
+    return list.slice().sort((a, b) => a.r - b.r || a.c - b.c);
+  }
+
+  function allOnGoals(list) {
+    return list.every(b => goals.has(boxKey(b)));
+  }
+
+  function reachable(sr, sc, boxList) {
+    const blocked = new Set(boxList.map(boxKey));
+    const seen = new Set([key(sr, sc)]);
+    const queue = [[sr, sc]];
+    for (let i = 0; i < queue.length; i++) {
+      const [r, c] = queue[i];
+      for (const d of DIR_LIST) {
+        const nr = r + d.dr, nc = c + d.dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        const k = key(nr, nc);
+        if (walls.has(k) || blocked.has(k) || seen.has(k)) continue;
+        seen.add(k);
+        queue.push([nr, nc]);
+      }
+    }
+    return seen;
+  }
+
+  function stateSignature(boxList, playerPos) {
+    const reach = reachable(playerPos.r, playerPos.c, boxList);
+    let norm = null;
+    for (const k of reach) if (norm === null || k < norm) norm = k;
+    return boxList.map(boxKey).join(';') + '|' + norm;
+  }
+
+  function buildGoalDistances() {
+    const dist = new Map();
+    const queue = [];
+
+    for (const g of goals) {
+      const [r, c] = g.split(',').map(Number);
+      dist.set(g, 0);
+      queue.push([r, c]);
+    }
+
+    for (let i = 0; i < queue.length; i++) {
+      const [r, c] = queue[i];
+      const d = dist.get(key(r, c));
+      for (const dir of DIR_LIST) {
+        const nr = r + dir.dr, nc = c + dir.dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        const k = key(nr, nc);
+        if (walls.has(k) || dist.has(k)) continue;
+        dist.set(k, d + 1);
+        queue.push([nr, nc]);
+      }
+    }
+    return dist;
+  }
+
+  function heuristic(boxList) {
+    let total = 0;
+    for (const b of boxList) {
+      const d = goalDist.get(boxKey(b));
+      if (d !== undefined) total += d;
+    }
+    return total;
+  }
+
+  function heapBetter(a, b) {
+    return a.f < b.f || (a.f === b.f && a.g > b.g);
+  }
+
+  function heapPush(heap, node) {
+    heap.push(node);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (!heapBetter(heap[i], heap[parent])) break;
+      [heap[parent], heap[i]] = [heap[i], heap[parent]];
+      i = parent;
+    }
+  }
+
+  function heapPop(heap) {
+    const top = heap[0];
+    const last = heap.pop();
+    if (!heap.length) return top;
+
+    heap[0] = last;
+    let i = 0;
+    while (true) {
+      const left = i * 2 + 1;
+      const right = left + 1;
+      let best = i;
+      if (left < heap.length && heapBetter(heap[left], heap[best])) best = left;
+      if (right < heap.length && heapBetter(heap[right], heap[best])) best = right;
+      if (best === i) break;
+      [heap[i], heap[best]] = [heap[best], heap[i]];
+      i = best;
+    }
+    return top;
+  }
+
+  function walkPath(from, to, boxList) {
+    const blocked = new Set(boxList.map(boxKey));
+    const prev = new Map([[key(from.r, from.c), null]]);
+    const queue = [{r: from.r, c: from.c}];
+
+    for (let i = 0; i < queue.length; i++) {
+      const cur = queue[i];
+      if (cur.r === to.r && cur.c === to.c) {
+        const path = [];
+        let k = key(cur.r, cur.c);
+        while (k !== null && k !== undefined) {
+          const [r, c] = k.split(',').map(Number);
+          path.push({r, c});
+          k = prev.get(k);
+        }
+        return path.reverse();
+      }
+      for (const d of DIR_LIST) {
+        const nr = cur.r + d.dr, nc = cur.c + d.dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        const k = key(nr, nc);
+        if (walls.has(k) || blocked.has(k) || prev.has(k)) continue;
+        prev.set(k, key(cur.r, cur.c));
+        queue.push({r: nr, c: nc});
+      }
+    }
+    return null;
+  }
+
+  function buildHint(goalNode, startBoxes) {
+    let first = goalNode;
+    while (first.parent && first.parent.parent) first = first.parent;
+    const action = first.action;
+    const stand = {r: action.box.r - action.dir.dr, c: action.box.c - action.dir.dc};
+
+    if (player.r !== stand.r || player.c !== stand.c) {
+      const path = walkPath(player, stand, startBoxes);
+      if (path && path.length > 1) return {step: path[1]};
+    }
+    return {step: {...action.box}, push: {to: action.target, dir: action.dir}};
+  }
+
+  function findHint() {
+    const startBoxes = sortBoxes(boxes);
+    if (allOnGoals(startBoxes)) return {solved: true};
+
+    const start = {
+      boxes: startBoxes,
+      player: {r: player.r, c: player.c},
+      parent: null,
+      action: null,
+      g: 0,
+      f: heuristic(startBoxes),
+      signature: stateSignature(startBoxes, player)
+    };
+    const open = [start];
+    const bestG = new Map([[start.signature, 0]]);
+    let expanded = 0;
+
+    while (open.length) {
+      const node = heapPop(open);
+      if (node.g > bestG.get(node.signature)) continue;
+      if (++expanded > 200000) return {limit: true};
+      if (allOnGoals(node.boxes)) return buildHint(node, startBoxes);
+
+      const reach = reachable(node.player.r, node.player.c, node.boxes);
+
+      for (const b of node.boxes) {
+        for (const d of DIR_LIST) {
+          const stand = {r: b.r - d.dr, c: b.c - d.dc};
+          if (!reach.has(key(stand.r, stand.c))) continue;
+          const target = {r: b.r + d.dr, c: b.c + d.dc};
+          if (target.r < 0 || target.r >= rows || target.c < 0 || target.c >= cols) continue;
+          if (walls.has(key(target.r, target.c))) continue;
+          if (node.boxes.some(o => o.r === target.r && o.c === target.c)) continue;
+
+          const moved = sortBoxes(node.boxes.map(o =>
+            (o.r === b.r && o.c === b.c) ? target : o
+          ));
+          const playerNext = {r: b.r, c: b.c};
+          const signature = stateSignature(moved, playerNext);
+          const g = node.g + 1;
+          if (g >= (bestG.get(signature) ?? Infinity)) continue;
+          bestG.set(signature, g);
+
+          heapPush(open, {
+            boxes: moved,
+            player: playerNext,
+            parent: node,
+            action: {box: {...b}, dir: d, target},
+            g,
+            f: g + heuristic(moved),
+            signature
+          });
+        }
+      }
+    }
+    return null;
+  }
+
+  function showHint() {
+    if (solved) {
+      note('This level is already solved — pick another level or replay it.');
+      return;
+    }
+
+    clearHintMarks();
+    const signature = stateSignature(sortBoxes(boxes), player);
+    const hint = findHint();
+
+    if (!hint) {
+      note('No solution from this position — undo (Z) or restart (R).');
+      return;
+    }
+    if (hint.limit) {
+      note('Hint search hit its limit here — try undo (Z) or restart (R).');
+      return;
+    }
+    if (hint.solved) {
+      note('Every crate is already on a target.');
+      return;
+    }
+
+    if (signature !== lastHintKey) {
+      lastHintKey = signature;
+      hintCount++;
+      updateHud();
+    }
+
+    const stepCell = cellAt(hint.step.r, hint.step.c);
+    if (stepCell) stepCell.classList.add('hint-step');
+
+    if (hint.push) {
+      const targetCell = cellAt(hint.push.to.r, hint.push.to.c);
+      if (targetCell) targetCell.classList.add('hint-push');
+      note('Hint: push the crate ' + hint.push.dir.name + '.');
+    } else {
+      const d = DIR_LIST.find(dir => dir.dr === hint.step.r - player.r && dir.dc === hint.step.c - player.c);
+      note('Hint: move ' + (d ? d.name : 'on') + '.');
+    }
   }
 
   LEVELS.forEach((level, i) => {
@@ -359,6 +648,7 @@
   });
 
   $('levelSel').addEventListener('change', e => loadLevel(+e.target.value));
+  $('hintBtn').addEventListener('click', showHint);
   $('undoBtn').addEventListener('click', undo);
   $('restartBtn').addEventListener('click', restart);
   startBtn.addEventListener('click', () => {
@@ -387,6 +677,9 @@
     } else if (k === 'z' || k === 'u') {
       e.preventDefault();
       undo();
+    } else if (k === 'h') {
+      e.preventDefault();
+      showHint();
     } else if (k === 'r') {
       e.preventDefault();
       restart();

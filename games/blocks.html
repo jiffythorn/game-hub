@@ -445,6 +445,16 @@
     });
   });
 
+  function fitBoard() {
+    const top = cv.getBoundingClientRect().top + window.scrollY;
+    const touch = window.matchMedia ? window.matchMedia('(hover: none)').matches : ('ontouchstart' in window);
+    const max = Math.max(240, window.innerHeight - top - (touch ? 88 : 20));
+    cv.style.maxHeight = Math.round(max) + 'px';
+  }
+
+  window.addEventListener('resize', fitBoard);
+  window.addEventListener('orientationchange', fitBoard);
+
   startBtn.addEventListener('click', () => {
     overlay.classList.remove('show');
     overlayAction();
@@ -453,6 +463,7 @@
   pauseBtn.addEventListener('click', togglePause);
 
   reset();
+  fitBoard();
   ask('🟪', 'Ready?', 'Move with the arrow keys or A/D, rotate with ↑ or W, drop with Space. Clear rows to score — don\'t let the stack reach the top.', '▶ Start game', play);
   requestAnimationFrame(loop);
 })();

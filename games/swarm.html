@@ -464,6 +464,15 @@
   cv.addEventListener('pointercancel', () => { dragging = false; });
   cv.addEventListener('pointerleave', () => { dragging = false; });
 
+  function fitBoard() {
+    const top = cv.getBoundingClientRect().top + window.scrollY;
+    const max = Math.max(240, window.innerHeight - top - 20);
+    cv.style.maxHeight = Math.round(max) + 'px';
+  }
+
+  window.addEventListener('resize', fitBoard);
+  window.addEventListener('orientationchange', fitBoard);
+
   startBtn.addEventListener('click', () => {
     overlay.classList.remove('show');
     overlayAction();
@@ -471,6 +480,7 @@
   $('restartBtn').addEventListener('click', restart);
   pauseBtn.addEventListener('click', togglePause);
 
+  fitBoard();
   newGame();
   ask('👾', 'Ready?', 'Move with ← → or A/D and fire with Space. On touch screens, drag to steer — your ship fires by itself while you hold.', '▶ Start game', play);
   requestAnimationFrame(loop);

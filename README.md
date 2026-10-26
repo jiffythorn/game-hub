@@ -43,7 +43,7 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | 🟪 **Block Drop** | Arrows / WASD, Space hard drop | 7-bag pieces, ghost preview, 10 lines per level |
 | 👾 **Star Swarm** | ← → / A D, Space to fire | Waves, 3 lives, destructible bunkers, best score |
 | 🔴 **Four in a Row** | Click / tap a column | 7×6 board, 3 AI levels, 2-player mode |
-| 📦 **Sokoban** | Arrows / WASD / swipe | 8 hand-built levels, undo, move & push counters |
+| 📦 **Sokoban** | Arrows / WASD / swipe | 8 hand-built levels, undo, hints, move & push counters |
 
 ## Play offline
 
