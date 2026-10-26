@@ -20,7 +20,7 @@
   <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
 </header>
 
-<main class="game-page">
+<main class="game-page page-c4">
   <div class="game-head">
     <div class="big">🔴</div>
     <div class="grow">
@@ -368,6 +368,24 @@
   $('diff').addEventListener('change', e => {
     difficulty = e.target.value;
   });
+  function fitBoard() {
+    const stage = boardEl.closest('.stage');
+    const wrap = boardEl.parentElement;
+    const cs = getComputedStyle(boardEl);
+    const pad = parseFloat(cs.paddingLeft) || 0;
+    const gap = parseFloat(cs.gap) || 0;
+    const wrapPad = parseFloat(getComputedStyle(wrap).paddingTop) || 0;
+    const top = stage.getBoundingClientRect().top + window.scrollY;
+    const availH = window.innerHeight - top - wrapPad * 2 - 12;
+    // Board height = 6 cells + 5 gaps + 2 paddings; solve for the widest board
+    // that still fits the space below the header.
+    const maxW = (7 * Math.max(0, availH - 5 * gap - 2 * pad)) / 6 + 2 * pad + 6 * gap;
+    boardEl.style.maxWidth = Math.max(180, Math.min(520, Math.floor(maxW))) + 'px';
+  }
+
+  window.addEventListener('resize', fitBoard);
+  window.addEventListener('orientationchange', fitBoard);
+
   boardEl.addEventListener('pointerleave', clearHighlight);
   document.addEventListener('keydown', e => {
     if (e.key.toLowerCase() === 'n') {
@@ -376,6 +394,7 @@
     }
   });
 
+  fitBoard();
   newRound();
   ask('🔴', 'Ready?', 'Click or tap a column to drop your disc. Line up four in a row — horizontally, vertically or diagonally — before your opponent does.', '▶ Start game', () => {});
 })();

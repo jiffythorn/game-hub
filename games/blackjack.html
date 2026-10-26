@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blackjack — Game Hub</title>
+<meta name="description" content="Play Blackjack free online against the dealer. Hit, stand or double, chase a 3:2 natural, and grow a saved bankroll. Touch and keyboard controls. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♠️</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="link hide-sm" href="../chat.html">💬 Guestbook</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page page-bj">
+  <div class="game-head">
+    <div class="big">♠️</div>
+    <div class="grow">
+      <h1>Blackjack</h1>
+      <p>Take on the dealer. Get closer to 21 without going over — hit, stand or double, and protect your bankroll hand after hand.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/blackjack.zip" download>⬇ Download</a>
+      <button class="btn btn-primary btn-sm" id="newBtn">↻ New hand</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Bank <b id="bank">100</b></div>
+    <div class="chip">Bet
+      <select id="bet" style="background:var(--surface-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:3px 6px;font:inherit;font-size:13px;margin-left:4px">
+        <option value="5">5</option>
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </div>
+    <div class="chip">Won <b id="won">0</b></div>
+    <div class="chip">Best <b id="best">100</b></div>
+  </div>
+
+  <div class="stage">
+    <div class="bj-table">
+      <div class="bj-side">
+        <div class="bj-hand-head"><span>Dealer</span><b id="dealerTotal">—</b></div>
+        <div class="bj-hand" id="dealerHand"></div>
+      </div>
+
+      <div class="bj-msg" id="msg" role="status" aria-live="polite">Place your bet and press Deal.</div>
+
+      <div class="bj-side">
+        <div class="bj-hand-head"><span>You</span><b id="playerTotal">—</b></div>
+        <div class="bj-hand" id="playerHand"></div>
+      </div>
+
+      <div class="bj-actions">
+        <button class="btn btn-ghost btn-sm" id="hitBtn" disabled>Hit <kbd>H</kbd></button>
+        <button class="btn btn-ghost btn-sm" id="standBtn" disabled>Stand <kbd>S</kbd></button>
+        <button class="btn btn-ghost btn-sm" id="doubleBtn" disabled>Double <kbd>D</kbd></button>
+        <button class="btn btn-primary btn-sm" id="dealBtn">▶ Deal</button>
+      </div>
+    </div>
+
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico">♠️</div>
+      <h2>Ready?</h2>
+      <p>Deal two cards and beat the dealer without going over 21. Blackjacks pay 3:2 — your bankroll is saved in this browser.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Deal</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <span><kbd>H</kbd> hit</span>
+    <span><kbd>S</kbd> stand</span>
+    <span><kbd>D</kbd> double</span>
+    <span><kbd>N</kbd> new hand</span>
+    <span>Dealer stands on 17</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const dealerEl = $('dealerHand'), playerEl = $('playerHand'), msgEl = $('msg');
+  const overlay = $('overlay'), startBtn = $('startBtn');
+  const bankEl = $('bank'), wonEl = $('won'), bestEl = $('best'), betEl = $('bet');
+  const dealBtn = $('dealBtn'), hitBtn = $('hitBtn'), standBtn = $('standBtn'), doubleBtn = $('doubleBtn');
+
+  const SUITS = [
+    {s: '♠', red: false, name: 'spades'},
+    {s: '♥', red: true, name: 'hearts'},
+    {s: '♦', red: true, name: 'diamonds'},
+    {s: '♣', red: false, name: 'clubs'}
+  ];
+  const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  const KEYS = {bank: 'gh.bj.bank', best: 'gh.bj.best', won: 'gh.bj.won', bet: 'gh.bj.bet'};
+  const BETS = [5, 10, 25, 50];
+
+  let bank = parseInt(localStorage.getItem(KEYS.bank), 10);
+  let best = parseInt(localStorage.getItem(KEYS.best), 10);
+  let won = parseInt(localStorage.getItem(KEYS.won), 10);
+  if (!Number.isFinite(bank) || bank <= 0) bank = 100;
+  if (!Number.isFinite(best) || best < bank) best = bank;
+  if (!Number.isFinite(won) || won < 0) won = 0;
+
+  let bet = parseInt(localStorage.getItem(KEYS.bet), 10);
+  if (!BETS.includes(bet)) bet = 10;
+  betEl.value = String(bet);
+
+  let shoe = [], dealer = [], player = [], active = false, holeHidden = false, wager = 0;
+
+  function save() {
+    localStorage.setItem(KEYS.bank, String(bank));
+    localStorage.setItem(KEYS.best, String(best));
+    localStorage.setItem(KEYS.won, String(won));
+    localStorage.setItem(KEYS.bet, String(bet));
+  }
+
+  function makeShoe() {
+    shoe = [];
+    for (let d = 0; d < 6; d++)
+      for (const suit of SUITS)
+        for (const r of RANKS) shoe.push({r, ...suit});
+    for (let i = shoe.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+    }
+  }
+
+  function draw() {
+    if (shoe.length < 20) makeShoe();
+    return shoe.pop();
+  }
+
+  function total(hand) {
+    let sum = 0, aces = 0;
+    for (const c of hand) {
+      if (c.r === 'A') { sum += 11; aces++; }
+      else if (c.r === 'K' || c.r === 'Q' || c.r === 'J') sum += 10;
+      else sum += +c.r;
+    }
+    while (sum > 21 && aces > 0) { sum -= 10; aces--; }
+    return sum;
+  }
+
+  function cardHTML(c) {
+    return `<div class="bj-card${c.red ? ' red' : ''}" aria-label="${c.r} of ${c.name}">` +
+      `<span class="bj-rank">${c.r}</span><span class="bj-corner">${c.s}</span>` +
+      `<span class="bj-pip">${c.s}</span></div>`;
+  }
+
+  function render() {
+    dealerEl.innerHTML = dealer.map((c, i) =>
+      i === 1 && holeHidden ? '<div class="bj-card back" aria-label="Hidden card"></div>' : cardHTML(c)
+    ).join('');
+    playerEl.innerHTML = player.map(cardHTML).join('');
+    dealerTotal.textContent = dealer.length ? (holeHidden ? total([dealer[0]]) + ' + ?' : total(dealer)) : '—';
+    playerTotal.textContent = player.length ? total(player) : '—';
+  }
+
+  function msg(text, cls) {
+    msgEl.textContent = text;
+    msgEl.className = 'bj-msg' + (cls ? ' ' + cls : '');
+  }
+
+  function updateHud() {
+    if (bank > best) best = bank;
+    bankEl.textContent = bank;
+    wonEl.textContent = won;
+    bestEl.textContent = best;
+  }
+
+  function setButtons() {
+    dealBtn.disabled = active;
+    hitBtn.disabled = !active;
+    standBtn.disabled = !active;
+    doubleBtn.disabled = !active || player.length !== 2 || bank < bet;
+    betEl.disabled = active;
+    $('newBtn').disabled = active;
+    dealBtn.textContent = active ? '▶ Deal' : (dealer.length || player.length ? '▶ Next hand' : '▶ Deal');
+  }
+
+  function finish(kind, text) {
+    active = false;
+    holeHidden = false;
+    if (kind === 'blackjack') bank += Math.round(wager * 2.5);
+    else if (kind === 'win') bank += wager * 2;
+    else if (kind === 'push') bank += wager;
+    if (kind === 'win' || kind === 'blackjack') won++;
+    updateHud();
+    save();
+    render();
+    setButtons();
+    msg(text, kind === 'lose' ? 'bad' : kind === 'push' ? 'tie' : 'good');
+    if (bank < bet) msg(text + ' Bank topped up to 100 on the next deal.', kind === 'lose' ? 'bad' : kind === 'push' ? 'tie' : 'good');
+  }
+
+  function settle() {
+    holeHidden = false;
+    while (total(dealer) < 17) dealer.push(draw());
+    render();
+    const p = total(player), d = total(dealer);
+    if (d > 21) finish('win', `Dealer busts with ${d} — you win ${wager}.`);
+    else if (p > d) finish('win', `${p} beats ${d} — you win ${wager}.`);
+    else if (p < d) finish('lose', `${d} beats ${p} — dealer wins.`);
+    else finish('push', `Both on ${p} — push, bet returned.`);
+  }
+
+  function deal() {
+    if (active) return;
+    if (bank < bet) { bank = 100; updateHud(); save(); }
+    wager = bet;
+    bank -= bet;
+    active = true;
+    holeHidden = true;
+    dealer = [];
+    player = [];
+    if (shoe.length < 20) makeShoe();
+    dealer.push(draw());
+    player.push(draw());
+    dealer.push(draw());
+    player.push(draw());
+    render();
+    updateHud();
+    save();
+    setButtons();
+    msg('Hit, stand or double.');
+    overlay.classList.remove('show');
+
+    const pBJ = total(player) === 21;
+    const dBJ = total(dealer) === 21;
+    if (pBJ || dBJ) {
+      holeHidden = false;
+      render();
+      if (pBJ && dBJ) finish('push', 'Two naturals — push, bet returned.');
+      else if (pBJ) finish('blackjack', 'Blackjack! Paid 3:2.');
+      else finish('lose', 'Dealer has blackjack.');
+    }
+  }
+
+  function hit() {
+    if (!active) return;
+    player.push(draw());
+    render();
+    const p = total(player);
+    if (p > 21) finish('lose', `Bust with ${p}. Dealer wins.`);
+    else if (p === 21) settle();
+    else { setButtons(); msg('Hit again or stand.'); }
+  }
+
+  function stand() {
+    if (!active) return;
+    settle();
+  }
+
+  function double() {
+    if (!active || player.length !== 2 || bank < bet) return;
+    bank -= bet;
+    wager *= 2;
+    updateHud();
+    save();
+    player.push(draw());
+    render();
+    if (total(player) > 21) finish('lose', `Double bust with ${total(player)}. Dealer wins.`);
+    else settle();
+  }
+
+  startBtn.addEventListener('click', () => {
+    overlay.classList.remove('show');
+    deal();
+  });
+  dealBtn.addEventListener('click', deal);
+  $('newBtn').addEventListener('click', () => {
+    if (active) return;
+    overlay.classList.remove('show');
+    deal();
+  });
+  hitBtn.addEventListener('click', hit);
+  standBtn.addEventListener('click', stand);
+  doubleBtn.addEventListener('click', double);
+  betEl.addEventListener('change', () => {
+    bet = +betEl.value;
+    save();
+    setButtons();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'h') { e.preventDefault(); hit(); }
+    else if (k === 's') { e.preventDefault(); stand(); }
+    else if (k === 'd') { e.preventDefault(); double(); }
+    else if (k === 'n') { e.preventDefault(); if (!active) { overlay.classList.remove('show'); deal(); } }
+  });
+
+  updateHud();
+  render();
+  setButtons();
+  msg('Place your bet and press Deal.');
+})();
+</script>
+
+</body>
+</html>

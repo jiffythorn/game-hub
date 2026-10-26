@@ -1,6 +1,6 @@
 # 🎮 Game Hub
 
-Play classic arcade games free in your browser — and **download them to play offline**.
+Play classic arcade and card games free in your browser — and **download them to play offline**.
 
 No installs. No accounts. No ads. No tracking. Just HTML, CSS and vanilla JavaScript.
 
@@ -44,7 +44,9 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | 👾 **Star Swarm** | ← → / A D, Space to fire | Waves, 3 lives, destructible bunkers, best score |
 | 🔴 **Four in a Row** | Click / tap a column | 7×6 board, 3 AI levels, 2-player mode |
 | 📦 **Sokoban** | Arrows / WASD / swipe | 8 hand-built levels, undo, hints, move & push counters |
+| ♠️ **Blackjack** | Click / tap, H / S / D / N | 6-deck shoe, hit/stand/double, 3:2 naturals, saved bankroll |
 | 🎟️ **Bingo** | Click / tap to dab, `B` to claim | 75-ball caller, 5×5 cards with free centre, smart bots, **multiplayer rooms with invite links** |
+| 🐛 **Centipede** | Arrows / A D / drag | Mushroom field, segmented bug, auto-fire, waves, 3 lives |
 
 ## Play offline
 
@@ -141,7 +143,9 @@ game-hub/
 │   ├── swarm.html
 │   ├── connect4.html
 │   ├── sokoban.html
-│   └── bingo.html
+│   ├── blackjack.html
+│   ├── bingo.html
+│   └── centipede.html
 ├── downloads/                 generated ZIPs (do not edit by hand)
 ├── scripts/build_downloads.py rebuilds downloads/
 ├── LICENSE

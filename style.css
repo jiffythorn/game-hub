@@ -252,6 +252,8 @@ a { color: inherit; text-decoration: none; }
 .t10 { background: linear-gradient(135deg, #3a1020, #b81f4a); }
 .t11 { background: linear-gradient(135deg, #33240f, #a86a10); }
 .t12 { background: linear-gradient(135deg, #0e2f2a, #7ee787); }
+.t13 { background: linear-gradient(135deg, #172a5e, #3667e8); }
+.t14 { background: linear-gradient(135deg, #3a1230, #c2410c); }
 
 .card .body { padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .card .body h3 { margin: 0; font-size: 19px; letter-spacing: -.3px; }
@@ -421,6 +423,12 @@ footer a { color: var(--purple-2); font-weight: 600; }
 }
 
 .stage { min-width: 0; }
+
+.page-mine .stage,
+.page-c4 .stage {
+  background: #0f1728;
+  border-color: #46577c;
+}
 
 .stage canvas {
   display: block;
@@ -866,6 +874,108 @@ kbd {
   50% { filter: brightness(1.45); }
 }
 
+/* ---------- blackjack ---------- */
+.page-bj .stage {
+  width: min(100%, 780px);
+  margin: 0 auto;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(34, 227, 163, .15), transparent 55%),
+    linear-gradient(160deg, #0e2a21, #08130f);
+  border-color: #2e5c4b;
+}
+
+.bj-table {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: clamp(14px, 3.4vw, 28px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.8vw, 16px);
+}
+
+.bj-side { display: flex; flex-direction: column; gap: 7px; }
+
+.bj-hand-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.bj-hand-head b { color: var(--text); font-size: 17px; letter-spacing: 0; }
+
+.bj-hand {
+  display: flex;
+  align-items: center;
+  min-height: clamp(88px, 18vw, 118px);
+  padding-left: 18px;
+}
+
+.bj-card {
+  position: relative;
+  flex: none;
+  width: clamp(52px, 12.5vw, 76px);
+  aspect-ratio: 2.5 / 3.5;
+  border: 1px solid #b8c2d8;
+  border-radius: 8px;
+  background: linear-gradient(160deg, #fbfcff, #dfe5f2);
+  color: #10141c;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .42);
+  animation: bj-in .18s ease-out;
+}
+
+.bj-card + .bj-card { margin-left: -14px; }
+.bj-card.red { color: #c02040; }
+
+.bj-rank { position: absolute; top: 4%; left: 8%; font-size: clamp(14px, 3.2vw, 20px); font-weight: 900; line-height: 1; }
+.bj-corner { position: absolute; top: 24%; left: 9%; font-size: clamp(11px, 2.2vw, 15px); }
+.bj-pip { position: absolute; inset: 0; display: grid; place-items: center; font-size: clamp(24px, 5.6vw, 38px); opacity: .9; }
+
+.bj-card.back {
+  border-color: #7c5cff;
+  background: repeating-linear-gradient(45deg, #2a1a5e 0 7px, #43269c 7px 14px);
+}
+
+.bj-card.back::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(255, 255, 255, .4);
+  border-radius: 5px;
+}
+
+@keyframes bj-in {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.bj-msg {
+  min-height: 1.5em;
+  text-align: center;
+  color: var(--muted);
+  font-size: clamp(13px, 1.7vw, 15px);
+}
+
+.bj-msg.good { color: var(--green); }
+.bj-msg.bad { color: var(--pink); }
+.bj-msg.tie { color: var(--yellow); }
+
+.bj-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.bj-actions .btn { min-width: 82px; }
+
 /* ---------- bingo ---------- */
 .bingo-stage > .overlay {
   justify-content: center;
@@ -1198,6 +1308,11 @@ kbd {
 .ov-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 2px; }
 .ov-note { min-height: 1.2em; margin: 0; color: var(--pink); font-size: 12.5px; }
 
+.page-centipede .stage {
+  width: min(100%, 640px);
+  margin: 0 auto;
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 640px) {
   .nav .link.hide-sm { display: none; }
@@ -1207,11 +1322,20 @@ kbd {
   .game-head .acts { gap: 6px; }
   .game-head .acts .btn { padding: 6px 9px; font-size: 12px; }
   .game-page { padding-top: 10px; }
+  .game-page.page-mine,
+  .game-page.page-c4 { padding: 8px 8px 40px; }
   .hud { gap: 6px; margin-bottom: 8px; }
   .chip { padding: 6px 9px; font-size: 12px; }
   .chip b { font-size: 14px; }
   .board-wrap { padding: 6px; }
   .mine-grid { gap: 2px; padding: 8px; }
+  .bj-table { padding: 10px 10px 8px; gap: 6px; }
+  .bj-hand { min-height: 72px; padding-left: 14px; }
+  .bj-card { width: clamp(46px, 12.5vw, 64px); }
+  .bj-card + .bj-card { margin-left: -13px; }
+  .bj-actions { flex-wrap: nowrap; gap: 5px; }
+  .bj-actions .btn { min-width: 0; flex: 1 1 0; padding: 7px 4px; font-size: 12px; }
+  .bj-actions kbd { display: none; }
   .overlay { padding: 14px; gap: 8px; }
   .overlay .ov-ico { font-size: 38px; }
   .overlay h2 { font-size: 22px; }
@@ -1251,6 +1375,93 @@ kbd {
   .ov-form { width: 100%; }
   .chat-form .bingo-input { font-size: 16px; }
   .chat-log { max-height: 132px; }
+}
+
+@media (max-width: 340px) {
+  .page-bingo .game-head { margin-bottom: 6px; gap: 6px; }
+  .page-bingo .game-head h1 { margin: 0; font-size: 20px; }
+  .page-bingo .game-head .acts .btn { padding: 5px 7px; font-size: 11px; }
+  .page-bingo .hud { gap: 4px; margin-bottom: 4px; }
+  .page-bingo .hud .chip { padding: 3px 6px; font-size: 10.5px; }
+  .page-bingo .hud .chip b { font-size: 12px; }
+  .page-bingo .bingo-stage { padding: 6px; gap: 6px; min-height: 0; }
+  .page-bingo .bingo-caller { gap: 6px; }
+  .page-bingo .bingo-ball { width: 56px; }
+  .page-bingo .bingo-ball .bnum { font-size: 20px; }
+  .page-bingo .bingo-togo { font-size: 11px; line-height: 1.35; }
+  .page-bingo .bingo-card-panel { gap: 6px; }
+  .page-bingo .bingo-heads,
+  .page-bingo .bingo-card { gap: 3px; }
+  .page-bingo .bingo-actions { gap: 5px; }
+  .page-bingo .bingo-actions .btn { padding: 7px 8px; font-size: 12px; }
+}
+
+/* Short landscape phones: park the title, buttons and HUD in a left column so
+   the board can use the full screen height instead of being squashed thin. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .nav { padding: 6px 12px; gap: 10px; }
+  .brand { gap: 8px; font-size: 15px; }
+  .brand .logo { width: 26px; height: 26px; font-size: 14px; }
+  .nav a.link { padding: 5px 8px; font-size: 12px; }
+  .nav .btn-sm { padding: 5px 9px; font-size: 12px; }
+
+  .game-page.page-mine,
+  .game-page.page-c4 {
+    display: grid;
+    grid-template-columns: minmax(150px, 200px) minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "head stage" "hud stage" "hints stage";
+    align-items: start;
+    column-gap: 12px;
+    row-gap: 4px;
+    max-width: none;
+    padding: 6px 10px 4px;
+  }
+
+  .page-mine .game-head,
+  .page-c4 .game-head {
+    grid-area: head;
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 5px;
+    margin: 0;
+  }
+  .page-mine .game-head .big,
+  .page-c4 .game-head .big,
+  .page-mine .game-head p,
+  .page-c4 .game-head p { display: none; }
+  .page-mine .game-head .grow,
+  .page-c4 .game-head .grow { min-width: 0; }
+  .page-mine .game-head h1,
+  .page-c4 .game-head h1 { margin: 0; font-size: 19px; }
+  .page-mine .game-head .acts,
+  .page-c4 .game-head .acts { flex-direction: column; gap: 4px; }
+  .page-mine .game-head .acts .btn,
+  .page-c4 .game-head .acts .btn { width: 100%; padding: 5px 8px; font-size: 11.5px; }
+
+  .page-mine .hud,
+  .page-c4 .hud {
+    grid-area: hud;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin: 4px 0 0;
+  }
+  .page-mine .hud .chip,
+  .page-c4 .hud .chip { width: 100%; padding: 4px 8px; gap: 6px; font-size: 11.5px; }
+  .page-mine .hud .chip b,
+  .page-c4 .hud .chip b { margin-left: auto; font-size: 13px; }
+  .page-mine .hud select,
+  .page-c4 .hud select { max-width: 100%; padding: 2px 4px; font-size: 11px; }
+
+  .page-mine .stage { grid-area: stage; align-self: start; justify-self: center; width: min(100%, 400px); }
+  .page-c4 .stage { grid-area: stage; align-self: start; justify-self: center; width: min(100%, 440px); }
+
+  .page-mine .mine-grid { padding: 8px; gap: 2px; }
+
+  .page-mine .controls-hint,
+  .page-c4 .controls-hint { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

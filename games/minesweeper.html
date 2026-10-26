@@ -20,7 +20,7 @@
   <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
 </header>
 
-<main class="game-page">
+<main class="game-page page-mine">
   <div class="game-head">
     <div class="big">💣</div>
     <div class="grow">
@@ -93,7 +93,9 @@
     const availH = window.innerHeight - top - 8 - frame;
     const fitH = Math.floor((availH - (L.r - 1) * gap) / L.r);
 
-    const fit = Math.min(fitW, fitH);
+    // Don't shrink cells into unreadable dots to squeeze the board above the
+    // fold — allow the page to scroll a little instead.
+    const fit = Math.min(fitW, Math.max(fitH, 15));
     grid.style.setProperty('--cs', Math.max(8, Math.min(40, fit)) + 'px');
   }
 
