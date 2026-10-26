@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sokoban — Game Hub</title>
+<meta name="description" content="Play Sokoban free online. Push every crate onto a target across eight hand-built levels, with undo, move and push counters. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="link hide-sm" href="../chat.html">💬 Guestbook</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">📦</div>
+    <div class="grow">
+      <h1>Sokoban</h1>
+      <p>Push every crate onto a target. You can only push, never pull — so plan each shove and use undo when a crate gets stuck in a corner.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/sokoban.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="undoBtn">↶ Undo</button>
+      <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip">Level
+      <select id="levelSel" style="background:var(--surface-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:3px 6px;font:inherit;font-size:13px;margin-left:4px"></select>
+    </div>
+    <div class="chip on">Moves <b id="moves">0</b></div>
+    <div class="chip">Pushes <b id="pushes">0</b></div>
+    <div class="chip">Best <b id="best">—</b></div>
+    <div class="chip">Solved <b id="solved">0/8</b></div>
+  </div>
+
+  <div class="stage">
+    <div class="board-wrap">
+      <div class="sok-board" id="board" aria-label="Sokoban board"></div>
+    </div>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">📦</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Move with the arrow keys, WASD or swipe. Walk into a crate to push it onto a glowing target. You cannot pull crates back.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start game</button>
+    </div>
+  </div>
+
+  <div class="touch-pad">
+    <button type="button" data-dir="left" aria-label="Move left">←</button>
+    <button type="button" data-dir="up" aria-label="Move up">↑</button>
+    <button type="button" data-dir="down" aria-label="Move down">↓</button>
+    <button type="button" data-dir="right" aria-label="Move right">→</button>
+  </div>
+
+  <div class="controls-hint">
+    <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
+    <span><kbd>Z</kbd> undo</span>
+    <span><kbd>R</kbd> restart</span>
+    <span>Swipe on mobile</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const boardEl = $('board'), overlay = $('overlay');
+  const ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+
+  const LEVELS = [
+    {name: 'First push', grid: [
+      '#######',
+      '#     #',
+      '# .$@ #',
+      '#     #',
+      '#######'
+    ]},
+    {name: 'Two step', grid: [
+      '########',
+      '#      #',
+      '# .$   #',
+      '#    $.#',
+      '#  @   #',
+      '########'
+    ]},
+    {name: 'Switchback', grid: [
+      '#########',
+      '#       #',
+      '#  $ .  #',
+      '#   @   #',
+      '#  $ .  #',
+      '#       #',
+      '#########'
+    ]},
+    {name: 'Hook', grid: [
+      '########',
+      '#      #',
+      '# $    #',
+      '# #    #',
+      '# # .  #',
+      '#   @  #',
+      '########'
+    ]},
+    {name: 'Crossed wires', grid: [
+      '##########',
+      '#        #',
+      '#  $  .  #',
+      '#  #  #  #',
+      '#  .  $  #',
+      '#   @    #',
+      '##########'
+    ]},
+    {name: 'Midway', grid: [
+      '###########',
+      '#         #',
+      '#  $ $ $  #',
+      '#  . # .  #',
+      '#    #    #',
+      '#    .    #',
+      '#    @    #',
+      '###########'
+    ]},
+    {name: 'Assembly line', grid: [
+      '###########',
+      '#         #',
+      '# $ $ $ $ #',
+      '#         #',
+      '# . . . . #',
+      '#    @    #',
+      '###########'
+    ]},
+    {name: 'The vault', grid: [
+      '###########',
+      '#         #',
+      '#  $   $  #',
+      '#  #####  #',
+      '#  .   .  #',
+      '#    $    #',
+      '#    .    #',
+      '#    @    #',
+      '###########'
+    ]}
+  ];
+
+  const DIRS = {up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1]};
+
+  let rows = 0, cols = 0, walls, goals, boxes, player;
+  let moves = 0, pushes = 0, history = [], solved = false, levelIndex = 0;
+  let best = {};
+  let overlayAction = () => {};
+
+  try {
+    best = JSON.parse(localStorage.getItem('gh.sokoban.best') || '{}') || {};
+  } catch (err) {
+    best = {};
+  }
+
+  const key = (r, c) => r + ',' + c;
+
+  function saveBest() {
+    localStorage.setItem('gh.sokoban.best', JSON.stringify(best));
+  }
+
+  function parse(grid) {
+    rows = grid.length;
+    cols = Math.max(...grid.map(line => line.length));
+    walls = new Set();
+    goals = new Set();
+    boxes = [];
+    player = {r: 0, c: 0};
+
+    for (let r = 0; r < rows; r++) {
+      const line = grid[r].padEnd(cols, ' ');
+      for (let c = 0; c < cols; c++) {
+        const ch = line[c];
+        if (ch === '#') walls.add(key(r, c));
+        else if (ch === '.') goals.add(key(r, c));
+        else if (ch === '$') boxes.push({r, c});
+        else if (ch === '*') {
+          boxes.push({r, c});
+          goals.add(key(r, c));
+        } else if (ch === '@') player = {r, c};
+        else if (ch === '+') {
+          player = {r, c};
+          goals.add(key(r, c));
+        }
+      }
+    }
+  }
+
+  function render() {
+    const boxKeys = new Set(boxes.map(b => key(b.r, b.c)));
+    const frag = document.createDocumentFragment();
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const k = key(r, c);
+        const cell = document.createElement('div');
+        cell.className = 'sok-cell';
+
+        if (walls.has(k)) {
+          cell.classList.add('wall');
+        } else {
+          if (goals.has(k)) {
+            const goal = document.createElement('span');
+            goal.className = 'sok-goal';
+            cell.appendChild(goal);
+          }
+          if (boxKeys.has(k)) {
+            const box = document.createElement('span');
+            box.className = 'sok-box' + (goals.has(k) ? ' on' : '');
+            cell.appendChild(box);
+          }
+          if (player.r === r && player.c === c) {
+            const hero = document.createElement('span');
+            hero.className = 'sok-player';
+            cell.appendChild(hero);
+          }
+        }
+        frag.appendChild(cell);
+      }
+    }
+
+    boardEl.innerHTML = '';
+    boardEl.appendChild(frag);
+  }
+
+  function solvedCount() {
+    return Object.keys(best).length;
+  }
+
+  function updateHud() {
+    $('moves').textContent = moves;
+    $('pushes').textContent = pushes;
+    $('best').textContent = best[levelIndex] ? best[levelIndex] + ' moves' : '—';
+    $('solved').textContent = solvedCount() + '/' + LEVELS.length;
+    $('levelSel').value = String(levelIndex);
+  }
+
+  function ask(ico, title, text, label, action) {
+    ovIco.textContent = ico;
+    ovTitle.textContent = title;
+    ovText.textContent = text;
+    startBtn.textContent = label;
+    overlayAction = action;
+    overlay.classList.add('show');
+  }
+
+  function snapshot() {
+    return {
+      player: {...player},
+      boxes: boxes.map(b => ({...b})),
+      moves,
+      pushes
+    };
+  }
+
+  function loadLevel(i) {
+    levelIndex = Math.max(0, Math.min(LEVELS.length - 1, i));
+    parse(LEVELS[levelIndex].grid);
+    moves = 0;
+    pushes = 0;
+    history = [];
+    solved = false;
+    overlay.classList.remove('show');
+    boardEl.style.setProperty('--cols', cols);
+    boardEl.style.setProperty('--rows', rows);
+    boardEl.style.aspectRatio = cols + ' / ' + rows;
+    localStorage.setItem('gh.sokoban.level', levelIndex);
+    render();
+    updateHud();
+  }
+
+  function step(dir) {
+    if (solved) return;
+    const [dr, dc] = DIRS[dir];
+    const nr = player.r + dr, nc = player.c + dc;
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) return;
+    if (walls.has(key(nr, nc))) return;
+
+    overlay.classList.remove('show');
+    const boxIndex = boxes.findIndex(b => b.r === nr && b.c === nc);
+
+    if (boxIndex >= 0) {
+      const br = nr + dr, bc = nc + dc;
+      if (br < 0 || br >= rows || bc < 0 || bc >= cols) return;
+      if (walls.has(key(br, bc))) return;
+      if (boxes.some(b => b.r === br && b.c === bc)) return;
+
+      history.push(snapshot());
+      boxes[boxIndex] = {r: br, c: bc};
+      player = {r: nr, c: nc};
+      moves++;
+      pushes++;
+    } else {
+      history.push(snapshot());
+      player = {r: nr, c: nc};
+      moves++;
+    }
+
+    render();
+    updateHud();
+    checkWin();
+  }
+
+  function checkWin() {
+    if (!boxes.every(b => goals.has(key(b.r, b.c)))) return;
+    solved = true;
+    const previous = best[levelIndex];
+    const isBest = !previous || moves < previous;
+    if (isBest) {
+      best[levelIndex] = moves;
+      saveBest();
+    }
+    updateHud();
+
+    const last = levelIndex === LEVELS.length - 1;
+    ask(
+      last && solvedCount() === LEVELS.length ? '🏆' : '📦',
+      'Level solved!',
+      'Finished in ' + moves + ' moves (' + pushes + ' pushes).' + (isBest ? ' New best for this level!' : ''),
+      last ? '↻ Back to level 1' : '▶ Next level',
+      last ? () => loadLevel(0) : () => loadLevel(levelIndex + 1)
+    );
+  }
+
+  function undo() {
+    if (!history.length) return;
+    const prev = history.pop();
+    player = prev.player;
+    boxes = prev.boxes;
+    moves = prev.moves;
+    pushes = prev.pushes;
+    solved = false;
+    overlay.classList.remove('show');
+    render();
+    updateHud();
+  }
+
+  function restart() {
+    loadLevel(levelIndex);
+  }
+
+  LEVELS.forEach((level, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = (i + 1) + ' · ' + level.name;
+    $('levelSel').appendChild(opt);
+  });
+
+  $('levelSel').addEventListener('change', e => loadLevel(+e.target.value));
+  $('undoBtn').addEventListener('click', undo);
+  $('restartBtn').addEventListener('click', restart);
+  startBtn.addEventListener('click', () => {
+    overlay.classList.remove('show');
+    overlayAction();
+  });
+
+  document.querySelectorAll('[data-dir]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      step(btn.dataset.dir);
+    });
+  });
+
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    const map = {
+      arrowup: 'up', w: 'up',
+      arrowdown: 'down', s: 'down',
+      arrowleft: 'left', a: 'left',
+      arrowright: 'right', d: 'right'
+    };
+    if (map[k]) {
+      e.preventDefault();
+      step(map[k]);
+    } else if (k === 'z' || k === 'u') {
+      e.preventDefault();
+      undo();
+    } else if (k === 'r') {
+      e.preventDefault();
+      restart();
+    }
+  });
+
+  let sx = null, sy = null;
+  boardEl.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    sx = t.clientX;
+    sy = t.clientY;
+  }, {passive: true});
+
+  boardEl.addEventListener('touchend', e => {
+    if (sx === null) return;
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    sx = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+    step(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  }, {passive: true});
+
+  const saved = +(localStorage.getItem('gh.sokoban.level') || 0);
+  loadLevel(Number.isFinite(saved) ? saved : 0);
+  ask('📦', 'Ready?', 'Move with the arrow keys, WASD or swipe. Walk into a crate to push it onto a glowing target. You cannot pull crates back.', '▶ Start game', () => {});
+})();
+</script>
+
+</body>
+</html>

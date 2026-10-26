@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2048 Merge — Game Hub</title>
+<meta name="description" content="Play 2048 Merge free online. Slide tiles, join equal numbers and build the 2048 tile. Undo, best score, swipe controls. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔢</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="link hide-sm" href="../chat.html">💬 Guestbook</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🔢</div>
+    <div class="grow">
+      <h1>2048 Merge</h1>
+      <p>Slide the board, bump equal numbers together and double them. Every move spawns a new tile — plan ahead, keep a corner free, and chase 2048.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/2048.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="undoBtn">↶ Undo</button>
+      <button class="btn btn-primary btn-sm" id="newBtn">↻ New game</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Score <b id="score">0</b></div>
+    <div class="chip">Best <b id="best">0</b></div>
+    <div class="chip">Moves <b id="moves">0</b></div>
+    <div class="chip">Top tile <b id="maxTile">2</b></div>
+  </div>
+
+  <div class="stage">
+    <div class="board-wrap">
+      <div class="g2048" id="board">
+        <div class="g2048-layer" id="bg" aria-hidden="true"></div>
+        <div class="g2048-layer" id="tiles" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🔢</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Use the arrow keys, WASD, or swipe on touch screens. Equal tiles merge into one — reach the 2048 tile to win.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start game</button>
+    </div>
+  </div>
+
+  <div class="touch-pad">
+    <button type="button" data-dir="left" aria-label="Slide left">←</button>
+    <button type="button" data-dir="up" aria-label="Slide up">↑</button>
+    <button type="button" data-dir="down" aria-label="Slide down">↓</button>
+    <button type="button" data-dir="right" aria-label="Slide right">→</button>
+  </div>
+
+  <div class="controls-hint">
+    <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> slide</span>
+    <span>Swipe on mobile</span>
+    <span><kbd>Z</kbd> undo</span>
+    <span><kbd>N</kbd> new game</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const SIZE = 4, CELLS = SIZE * SIZE;
+  const $ = id => document.getElementById(id);
+  const boardEl = $('board'), bg = $('bg'), tilesEl = $('tiles'), overlay = $('overlay');
+  const ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+
+  let grid, score, moves, best, bestTile, won, over, prev;
+  let newCells = [], mergedCells = [];
+  let overlayAction = () => {};
+
+  best = +(localStorage.getItem('gh.2048.best') || 0);
+  bestTile = +(localStorage.getItem('gh.2048.tile') || 0);
+
+  for (let i = 0; i < CELLS; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'g2048-bg';
+    bg.appendChild(cell);
+  }
+
+  const fresh = () => Array.from({length: SIZE}, () => Array(SIZE).fill(0));
+
+  function addTile() {
+    const spots = [];
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        if (!grid[r][c]) spots.push([r, c]);
+    if (!spots.length) return;
+    const [r, c] = spots[(Math.random() * spots.length) | 0];
+    grid[r][c] = Math.random() < 0.9 ? 2 : 4;
+    newCells.push(r + ',' + c);
+  }
+
+  function topTile() {
+    let top = 0;
+    for (const row of grid) for (const v of row) top = Math.max(top, v);
+    return top;
+  }
+
+  function render() {
+    tilesEl.innerHTML = '';
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const v = grid[r][c];
+        if (!v) continue;
+        const tile = document.createElement('div');
+        tile.className = 'g2048-tile v' + (v > 2048 ? 'big' : v) + (v >= 1024 ? ' big' : '');
+        tile.style.gridArea = (r + 1) + ' / ' + (c + 1);
+        tile.textContent = v;
+        if (newCells.includes(r + ',' + c)) tile.classList.add('new');
+        if (mergedCells.includes(r + ',' + c)) tile.classList.add('merged');
+        tilesEl.appendChild(tile);
+      }
+    }
+    $('score').textContent = score;
+    $('best').textContent = best;
+    $('moves').textContent = moves;
+    $('maxTile').textContent = Math.max(bestTile, topTile());
+    newCells = [];
+    mergedCells = [];
+  }
+
+  function processLine(coords, mergedIdx) {
+    const vals = coords.map(([r, c]) => grid[r][c]).filter(Boolean);
+    const out = [];
+    let gained = 0;
+    for (let i = 0; i < vals.length; i++) {
+      if (i + 1 < vals.length && vals[i] === vals[i + 1]) {
+        out.push(vals[i] * 2);
+        gained += vals[i] * 2;
+        mergedIdx.push(out.length - 1);
+        i++;
+      } else {
+        out.push(vals[i]);
+      }
+    }
+    let changed = false;
+    coords.forEach(([r, c], i) => {
+      const v = out[i] || 0;
+      if (grid[r][c] !== v) changed = true;
+      grid[r][c] = v;
+    });
+    return {changed, gained};
+  }
+
+  function move(dir) {
+    if (over || !grid) return;
+    overlay.classList.remove('show');
+
+    const snapshot = {g: grid.map(row => row.slice()), s: score};
+    const lines = [], merges = [];
+    let changed = false, gained = 0;
+
+    if (dir === 'left' || dir === 'right') {
+      for (let r = 0; r < SIZE; r++) {
+        const coords = [];
+        for (let i = 0; i < SIZE; i++) coords.push([r, dir === 'left' ? i : SIZE - 1 - i]);
+        lines.push(coords);
+      }
+    } else {
+      for (let c = 0; c < SIZE; c++) {
+        const coords = [];
+        for (let i = 0; i < SIZE; i++) coords.push([dir === 'up' ? i : SIZE - 1 - i, c]);
+        lines.push(coords);
+      }
+    }
+
+    for (const coords of lines) {
+      const idx = [];
+      const res = processLine(coords, idx);
+      if (res.changed) changed = true;
+      gained += res.gained;
+      idx.forEach(i => merges.push(coords[i]));
+    }
+
+    if (!changed) return;
+
+    prev = snapshot;
+    score += gained;
+    moves++;
+    mergedCells = merges.map(([r, c]) => r + ',' + c);
+    addTile();
+
+    const top = topTile();
+    if (score > best) {
+      best = score;
+      localStorage.setItem('gh.2048.best', best);
+    }
+    if (top > bestTile) {
+      bestTile = top;
+      localStorage.setItem('gh.2048.tile', bestTile);
+    }
+
+    render();
+
+    if (top >= 2048 && !won) {
+      won = true;
+      ask('🏆', '2048!', 'You built the 2048 tile in ' + moves + ' moves. Keep sliding for 4096?', '▶ Keep going', () => {});
+    } else if (!canMove()) {
+      over = true;
+      ask('💀', 'No moves left', 'Final score ' + score + ' · top tile ' + top + '. Best score is ' + best + '.', '↻ Try again', newGame);
+    }
+  }
+
+  function canMove() {
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (!grid[r][c]) return true;
+        if (c + 1 < SIZE && grid[r][c] === grid[r][c + 1]) return true;
+        if (r + 1 < SIZE && grid[r][c] === grid[r + 1][c]) return true;
+      }
+    }
+    return false;
+  }
+
+  function ask(ico, title, text, label, action) {
+    ovIco.textContent = ico;
+    ovTitle.textContent = title;
+    ovText.textContent = text;
+    startBtn.textContent = label;
+    overlayAction = action;
+    overlay.classList.add('show');
+  }
+
+  function newGame() {
+    grid = fresh();
+    score = 0;
+    moves = 0;
+    won = false;
+    over = false;
+    prev = null;
+    newCells = [];
+    mergedCells = [];
+    addTile();
+    addTile();
+    overlay.classList.remove('show');
+    render();
+  }
+
+  function undo() {
+    if (!prev) return;
+    grid = prev.g;
+    score = prev.s;
+    prev = null;
+    over = false;
+    moves = Math.max(0, moves - 1);
+    newCells = [];
+    mergedCells = [];
+    overlay.classList.remove('show');
+    render();
+  }
+
+  startBtn.addEventListener('click', () => {
+    overlay.classList.remove('show');
+    overlayAction();
+  });
+
+  $('newBtn').addEventListener('click', newGame);
+  $('undoBtn').addEventListener('click', undo);
+
+  const KEYS = {
+    arrowleft: 'left', a: 'left',
+    arrowright: 'right', d: 'right',
+    arrowup: 'up', w: 'up',
+    arrowdown: 'down', s: 'down'
+  };
+
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (KEYS[k]) {
+      e.preventDefault();
+      move(KEYS[k]);
+    } else if (k === 'n') {
+      e.preventDefault();
+      newGame();
+    } else if (k === 'z') {
+      e.preventDefault();
+      undo();
+    }
+  });
+
+  let sx = null, sy = null;
+  boardEl.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    sx = t.clientX;
+    sy = t.clientY;
+  }, {passive: true});
+
+  boardEl.addEventListener('touchend', e => {
+    if (sx === null) return;
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    sx = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  }, {passive: true});
+
+  document.querySelectorAll('[data-dir]').forEach(btn => {
+    btn.addEventListener('click', () => move(btn.dataset.dir));
+  });
+
+  newGame();
+  ask('🔢', 'Ready?', 'Use the arrow keys, WASD, or swipe on touch screens. Equal tiles merge into one — reach the 2048 tile to win.', '▶ Start game', () => {});
+})();
+</script>
+
+</body>
+</html>

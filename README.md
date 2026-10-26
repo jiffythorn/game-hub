@@ -39,6 +39,11 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | 🐦 **Flappy** | Space / click / tap | Endless pipes, high score |
 | 🃏 **Memory Match** | Click / tap | 4×4, 6×6, 8×8 grids, timer, best time |
 | 💣 **Minesweeper** | Click to reveal, right-click / flag mode to flag | 3 levels, first click always safe |
+| 🔢 **2048 Merge** | Arrows / WASD / swipe | 4×4 sliding puzzle, undo, best score and top tile |
+| 🟪 **Block Drop** | Arrows / WASD, Space hard drop | 7-bag pieces, ghost preview, 10 lines per level |
+| 👾 **Star Swarm** | ← → / A D, Space to fire | Waves, 3 lives, destructible bunkers, best score |
+| 🔴 **Four in a Row** | Click / tap a column | 7×6 board, 3 AI levels, 2-player mode |
+| 📦 **Sokoban** | Arrows / WASD / swipe | 8 hand-built levels, undo, move & push counters |
 
 ## Play offline
 
@@ -101,7 +106,12 @@ game-hub/
 │   ├── pong.html
 │   ├── flappy.html
 │   ├── memory.html
-│   └── minesweeper.html
+│   ├── minesweeper.html
+│   ├── 2048.html
+│   ├── blocks.html
+│   ├── swarm.html
+│   ├── connect4.html
+│   └── sokoban.html
 ├── downloads/                 generated ZIPs (do not edit by hand)
 ├── scripts/build_downloads.py rebuilds downloads/
 ├── LICENSE

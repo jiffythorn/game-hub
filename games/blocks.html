@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Drop — Game Hub</title>
+<meta name="description" content="Play Block Drop free online. Stack falling pieces, clear lines and speed through levels. Keyboard and touch controls, high score. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🟪</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="link hide-sm" href="../chat.html">💬 Guestbook</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🟪</div>
+    <div class="grow">
+      <h1>Block Drop</h1>
+      <p>Rotate the falling pieces, pack them tight and clear full rows. Every ten lines the stack speeds up — the ghost outline shows where a piece will land.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/blocks.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
+      <button class="btn btn-ghost btn-sm" id="pauseBtn">⏸ Pause</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Score <b id="score">0</b></div>
+    <div class="chip">Best <b id="best">0</b></div>
+    <div class="chip">Lines <b id="lines">0</b></div>
+    <div class="chip">Level <b id="level">1</b></div>
+    <div class="chip">Next <canvas id="next" width="80" height="52" aria-label="Next piece" style="display:block"></canvas></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="board" width="320" height="640"></canvas>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🟪</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Move with the arrow keys or A/D, rotate with ↑ or W, drop with Space. Clear rows to score — don't let the stack reach the top.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start game</button>
+    </div>
+  </div>
+
+  <div class="touch-pad">
+    <button type="button" data-act="left" aria-label="Move left">◀</button>
+    <button type="button" data-act="rotate" aria-label="Rotate">↻</button>
+    <button type="button" data-act="right" aria-label="Move right">▶</button>
+    <button type="button" data-act="down" aria-label="Soft drop">▼</button>
+    <button type="button" data-act="drop" aria-label="Hard drop">⤓</button>
+  </div>
+
+  <div class="controls-hint">
+    <span><kbd>←</kbd><kbd>→</kbd> move</span>
+    <span><kbd>↑</kbd> / <kbd>W</kbd> rotate</span>
+    <span><kbd>↓</kbd> soft drop</span>
+    <span><kbd>Space</kbd> hard drop</span>
+    <span><kbd>P</kbd> pause</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('board'), ctx = cv.getContext('2d');
+  const ncv = $('next'), nctx = ncv.getContext('2d');
+  const overlay = $('overlay'), ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+  const pauseBtn = $('pauseBtn');
+
+  const COLS = 10, ROWS = 20, CELL = cv.width / COLS;
+  const TYPES = {
+    I: {color: '#38d9ff', m: [[1, 1, 1, 1]]},
+    O: {color: '#ffd23f', m: [[1, 1], [1, 1]]},
+    T: {color: '#a78bfa', m: [[1, 1, 1], [0, 1, 0]]},
+    S: {color: '#22e3a3', m: [[0, 1, 1], [1, 1, 0]]},
+    Z: {color: '#ff5d8f', m: [[1, 1, 0], [0, 1, 1]]},
+    J: {color: '#6d8bff', m: [[1, 0, 0], [1, 1, 1]]},
+    L: {color: '#ffa53f', m: [[0, 0, 1], [1, 1, 1]]}
+  };
+
+  let board, cur, next, bag, score, best, lines, level;
+  let started = false, paused = false, over = false;
+  let dropAcc = 0, last = 0;
+  let overlayAction = () => {};
+
+  best = +(localStorage.getItem('gh.blocks.best') || 0);
+
+  const emptyRow = () => Array(COLS).fill(null);
+  const gravity = () => Math.max(85, 800 - (level - 1) * 65);
+
+  function nextType() {
+    if (!bag.length) {
+      bag = Object.keys(TYPES);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = (Math.random() * (i + 1)) | 0;
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+    }
+    return bag.pop();
+  }
+
+  function fits(m, x, y) {
+    for (let r = 0; r < m.length; r++) {
+      for (let c = 0; c < m[r].length; c++) {
+        if (!m[r][c]) continue;
+        const nx = x + c, ny = y + r;
+        if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
+        if (ny >= 0 && board[ny][nx]) return false;
+      }
+    }
+    return true;
+  }
+
+  function spawn() {
+    const type = next;
+    next = nextType();
+    const shape = TYPES[type];
+    const m = shape.m.map(row => row.slice());
+    cur = {color: shape.color, m, x: Math.floor((COLS - m[0].length) / 2), y: 0};
+    drawNext();
+    if (!fits(m, cur.x, cur.y)) {
+      cur = null;
+      gameOver();
+    }
+  }
+
+  function reset() {
+    board = Array.from({length: ROWS}, emptyRow);
+    bag = [];
+    score = 0;
+    lines = 0;
+    level = 1;
+    over = false;
+    paused = false;
+    dropAcc = 0;
+    next = nextType();
+    spawn();
+    updateHud();
+  }
+
+  function updateHud() {
+    if (score > best) {
+      best = score;
+      localStorage.setItem('gh.blocks.best', best);
+    }
+    $('score').textContent = score;
+    $('best').textContent = best;
+    $('lines').textContent = lines;
+    $('level').textContent = level;
+  }
+
+  function clearLines() {
+    let n = 0;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (board[r].every(Boolean)) {
+        board.splice(r, 1);
+        board.unshift(emptyRow());
+        n++;
+        r++;
+      }
+    }
+    if (n) {
+      score += [0, 100, 300, 500, 800][n] * level;
+      lines += n;
+      level = 1 + Math.floor(lines / 10);
+      updateHud();
+    }
+  }
+
+  function lock() {
+    if (!cur) return;
+    for (let r = 0; r < cur.m.length; r++) {
+      for (let c = 0; c < cur.m[r].length; c++) {
+        if (cur.m[r][c] && cur.y + r >= 0) board[cur.y + r][cur.x + c] = {color: cur.color};
+      }
+    }
+    cur = null;
+    clearLines();
+    if (over) return;
+    spawn();
+  }
+
+  function step() {
+    if (!cur) return;
+    if (fits(cur.m, cur.x, cur.y + 1)) cur.y++;
+    else lock();
+  }
+
+  function nudge(dx, dy) {
+    if (!cur) return false;
+    if (!fits(cur.m, cur.x + dx, cur.y + dy)) return false;
+    cur.x += dx;
+    cur.y += dy;
+    return true;
+  }
+
+  function rotate() {
+    if (!cur) return;
+    const m = cur.m[0].map((_, i) => cur.m.map(row => row[i]).reverse());
+    for (const kick of [0, -1, 1, -2, 2]) {
+      if (fits(m, cur.x + kick, cur.y)) {
+        cur.m = m;
+        cur.x += kick;
+        return;
+      }
+    }
+  }
+
+  function softDrop() {
+    if (!cur) return;
+    if (fits(cur.m, cur.x, cur.y + 1)) {
+      cur.y++;
+      score++;
+      updateHud();
+    } else {
+      lock();
+    }
+    dropAcc = 0;
+  }
+
+  function hardDrop() {
+    if (!cur) return;
+    let dropped = 0;
+    while (fits(cur.m, cur.x, cur.y + 1)) {
+      cur.y++;
+      dropped++;
+    }
+    score += dropped * 2;
+    lock();
+    updateHud();
+    dropAcc = 0;
+  }
+
+  function gameOver() {
+    over = true;
+    started = false;
+    updateHud();
+    ask('💀', 'Stacked out', 'You scored ' + score + ' points, cleared ' + lines + ' rows and reached level ' + level + '. Best: ' + best + '.', '↻ Play again', restart);
+  }
+
+  function ask(ico, title, text, label, action) {
+    ovIco.textContent = ico;
+    ovTitle.textContent = title;
+    ovText.textContent = text;
+    startBtn.textContent = label;
+    overlayAction = action;
+    overlay.classList.add('show');
+  }
+
+  function play() {
+    if (over) return;
+    overlay.classList.remove('show');
+    started = true;
+    paused = false;
+    dropAcc = 0;
+    pauseBtn.textContent = '⏸ Pause';
+    if (!cur) reset();
+  }
+
+  function restart() {
+    reset();
+    play();
+  }
+
+  function togglePause() {
+    if (over) return;
+    if (!started) {
+      play();
+      return;
+    }
+    paused = !paused;
+    pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
+    if (paused) {
+      ask('⏸️', 'Paused', 'Take a breath — your stack is not going anywhere.', '▶ Resume', resume);
+    } else {
+      overlay.classList.remove('show');
+    }
+  }
+
+  function resume() {
+    paused = false;
+    started = true;
+    dropAcc = 0;
+    pauseBtn.textContent = '⏸ Pause';
+  }
+
+  function act(fn) {
+    if (over) return;
+    if (!started || paused) {
+      play();
+      return;
+    }
+    fn();
+  }
+
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function block(x, y, color, ghost) {
+    const px = x * CELL, py = y * CELL;
+    if (ghost) {
+      ctx.save();
+      ctx.globalAlpha = .32;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      rr(px + 3, py + 3, CELL - 6, CELL - 6, 6);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    ctx.fillStyle = color;
+    rr(px + 1, py + 1, CELL - 2, CELL - 2, 6);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.28)';
+    rr(px + 4, py + 4, CELL - 8, 5, 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.22)';
+    rr(px + 4, py + CELL - 9, CELL - 8, 5, 2);
+    ctx.fill();
+  }
+
+  function drawNext() {
+    nctx.clearRect(0, 0, ncv.width, ncv.height);
+    const m = TYPES[next].m, color = TYPES[next].color, size = 13;
+    const ox = (ncv.width - m[0].length * size) / 2;
+    const oy = (ncv.height - m.length * size) / 2;
+    nctx.fillStyle = color;
+    for (let r = 0; r < m.length; r++) {
+      for (let c = 0; c < m[r].length; c++) {
+        if (m[r][c]) nctx.fillRect(ox + c * size + 1, oy + r * size + 1, size - 2, size - 2);
+      }
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle = '#05070c';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+
+    ctx.strokeStyle = 'rgba(255,255,255,.04)';
+    ctx.lineWidth = 1;
+    for (let c = 1; c < COLS; c++) {
+      ctx.beginPath();
+      ctx.moveTo(c * CELL, 0);
+      ctx.lineTo(c * CELL, cv.height);
+      ctx.stroke();
+    }
+    for (let r = 1; r < ROWS; r++) {
+      ctx.beginPath();
+      ctx.moveTo(0, r * CELL);
+      ctx.lineTo(cv.width, r * CELL);
+      ctx.stroke();
+    }
+
+    if (cur) {
+      let gy = cur.y;
+      while (fits(cur.m, cur.x, gy + 1)) gy++;
+      for (let r = 0; r < cur.m.length; r++) {
+        for (let c = 0; c < cur.m[r].length; c++) {
+          if (cur.m[r][c]) block(cur.x + c, gy + r, cur.color, true);
+        }
+      }
+    }
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (board[r][c]) block(c, r, board[r][c].color, false);
+      }
+    }
+
+    if (cur) {
+      for (let r = 0; r < cur.m.length; r++) {
+        for (let c = 0; c < cur.m[r].length; c++) {
+          if (cur.m[r][c]) block(cur.x + c, cur.y + r, cur.color, false);
+        }
+      }
+    }
+  }
+
+  function loop(t) {
+    const dt = last ? Math.min(80, t - last) : 0;
+    last = t;
+    if (started && !paused && !over && cur) {
+      dropAcc += dt;
+      if (dropAcc >= gravity()) {
+        dropAcc = 0;
+        step();
+      }
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'p' || k === 'escape') {
+      e.preventDefault();
+      togglePause();
+    } else if (k === 'r') {
+      e.preventDefault();
+      restart();
+    } else if (k === 'arrowleft' || k === 'a') {
+      e.preventDefault();
+      act(() => nudge(-1, 0));
+    } else if (k === 'arrowright' || k === 'd') {
+      e.preventDefault();
+      act(() => nudge(1, 0));
+    } else if (k === 'arrowdown' || k === 's') {
+      e.preventDefault();
+      act(softDrop);
+    } else if (k === 'arrowup' || k === 'w' || k === 'x') {
+      e.preventDefault();
+      act(rotate);
+    } else if (k === ' ') {
+      e.preventDefault();
+      act(hardDrop);
+    }
+  });
+
+  document.querySelectorAll('[data-act]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const a = btn.dataset.act;
+      if (a === 'left') act(() => nudge(-1, 0));
+      else if (a === 'right') act(() => nudge(1, 0));
+      else if (a === 'rotate') act(rotate);
+      else if (a === 'down') act(softDrop);
+      else if (a === 'drop') act(hardDrop);
+    });
+  });
+
+  startBtn.addEventListener('click', () => {
+    overlay.classList.remove('show');
+    overlayAction();
+  });
+  $('restartBtn').addEventListener('click', restart);
+  pauseBtn.addEventListener('click', togglePause);
+
+  reset();
+  ask('🟪', 'Ready?', 'Move with the arrow keys or A/D, rotate with ↑ or W, drop with Space. Clear rows to score — don\'t let the stack reach the top.', '▶ Start game', play);
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

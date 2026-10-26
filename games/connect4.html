@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four in a Row — Game Hub</title>
+<meta name="description" content="Play Four in a Row free online against a computer opponent or a friend. Three AI difficulty levels, win tracking, touch friendly. Download to play offline.">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔴</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="link hide-sm" href="../chat.html">💬 Guestbook</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page">
+  <div class="game-head">
+    <div class="big">🔴</div>
+    <div class="grow">
+      <h1>Four in a Row</h1>
+      <p>Drop discs, build a line of four and block your opponent before they get there. Take on the computer at three strengths, or pass the keyboard to a friend.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/connect4.zip" download>⬇ Download</a>
+      <button class="btn btn-primary btn-sm" id="newBtn">↻ New round</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Turn <b id="turn">Your turn</b></div>
+    <div class="chip"><span id="lbl1">You</span> <b id="w1">0</b></div>
+    <div class="chip"><span id="lbl2">AI</span> <b id="w2">0</b></div>
+    <div class="chip">Draws <b id="draws">0</b></div>
+    <div class="chip">Mode
+      <select id="mode" style="background:var(--surface-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:3px 6px;font:inherit;font-size:13px;margin-left:4px">
+        <option value="ai">vs AI</option>
+        <option value="2p">2 players</option>
+      </select>
+    </div>
+    <div class="chip" id="diffChip">AI
+      <select id="diff" style="background:var(--surface-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:3px 6px;font:inherit;font-size:13px;margin-left:4px">
+        <option value="easy">Easy</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="c4-wrap">
+      <div class="c4-board" id="board" aria-label="Four in a Row board"></div>
+    </div>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🔴</div>
+      <h2 id="ovTitle">Ready?</h2>
+      <p id="ovText">Click or tap a column to drop your disc. Line up four in a row — horizontally, vertically or diagonally — before your opponent does.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Start game</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <span>🖱️ Click or tap a column to drop</span>
+    <span>🟢 You / Player 1</span>
+    <span>🔴 AI / Player 2</span>
+    <span><kbd>N</kbd> new round</span>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const boardEl = $('board'), overlay = $('overlay');
+  const ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText'), startBtn = $('startBtn');
+
+  const ROWS = 6, COLS = 7, EMPTY = 0, P1 = 1, P2 = 2;
+  const CENTER_ORDER = [3, 2, 4, 1, 5, 0, 6];
+  const WINDOWS = (() => {
+    const out = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (c + 4 <= COLS) out.push([[r, c], [r, c + 1], [r, c + 2], [r, c + 3]]);
+        if (r + 4 <= ROWS) out.push([[r, c], [r + 1, c], [r + 2, c], [r + 3, c]]);
+        if (r + 4 <= ROWS && c + 4 <= COLS) out.push([[r, c], [r + 1, c + 1], [r + 2, c + 2], [r + 3, c + 3]]);
+        if (r + 4 <= ROWS && c - 3 >= 0) out.push([[r, c], [r + 1, c - 1], [r + 2, c - 2], [r + 3, c - 3]]);
+      }
+    }
+    return out;
+  })();
+
+  let board, shown = [], turn, over, busy;
+  let mode = 'ai', difficulty = 'normal';
+  let record = JSON.parse(localStorage.getItem('gh.c4.record') || '{"w1":0,"w2":0,"d":0}');
+  let overlayAction = () => {};
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'c4-cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.setAttribute('aria-label', 'Column ' + (c + 1) + ', row ' + (r + 1));
+      cell.addEventListener('click', () => onColumn(c));
+      cell.addEventListener('pointerenter', () => highlight(c));
+      boardEl.appendChild(cell);
+    }
+  }
+
+  function highlight(c) {
+    if (over || busy) return;
+    Array.from(boardEl.children).forEach(el => {
+      el.classList.toggle('col-hl', +el.dataset.c === c);
+    });
+  }
+
+  function clearHighlight() {
+    Array.from(boardEl.children).forEach(el => el.classList.remove('col-hl'));
+  }
+
+  function emptyBoard() {
+    return Array.from({length: ROWS}, () => Array(COLS).fill(EMPTY));
+  }
+
+  function legalMoves() {
+    const moves = [];
+    for (const c of CENTER_ORDER) if (board[0][c] === EMPTY) moves.push(c);
+    return moves;
+  }
+
+  function lowest(c) {
+    for (let r = ROWS - 1; r >= 0; r--) if (board[r][c] === EMPTY) return r;
+    return -1;
+  }
+
+  function drop(c, player) {
+    const r = lowest(c);
+    if (r === -1) return -1;
+    board[r][c] = player;
+    return r;
+  }
+
+  function isFull() {
+    return board[0].every(v => v !== EMPTY);
+  }
+
+  function winAt(r, c, player) {
+    for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+      const cells = [[r, c]];
+      for (const sign of [1, -1]) {
+        let rr = r + dr * sign, cc = c + dc * sign;
+        while (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && board[rr][cc] === player) {
+          cells.push([rr, cc]);
+          rr += dr * sign;
+          cc += dc * sign;
+        }
+      }
+      if (cells.length >= 4) return cells;
+    }
+    return null;
+  }
+
+  function evaluateFor(player) {
+    const opp = 3 - player;
+    let score = 0;
+    for (const win of WINDOWS) {
+      let mine = 0, theirs = 0;
+      for (const [r, c] of win) {
+        const v = board[r][c];
+        if (v === player) mine++;
+        else if (v === opp) theirs++;
+      }
+      if (mine && theirs) continue;
+      if (mine === 3) score += 60;
+      else if (mine === 2) score += 8;
+      else if (mine === 1) score += 1;
+      if (theirs === 3) score -= 75;
+      else if (theirs === 2) score -= 10;
+      else if (theirs === 1) score -= 1;
+    }
+    for (let r = 0; r < ROWS; r++) {
+      if (board[r][3] === player) score += 4;
+      else if (board[r][3] === opp) score -= 4;
+    }
+    return score;
+  }
+
+  function negamax(depth, alpha, beta, player, lastR, lastC) {
+    if (winAt(lastR, lastC, 3 - player)) return -100000 - depth;
+    if (isFull()) return 0;
+    if (depth <= 0) return evaluateFor(player);
+
+    let best = -Infinity;
+    for (const c of legalMoves()) {
+      const r = lowest(c);
+      board[r][c] = player;
+      const score = -negamax(depth - 1, -beta, -alpha, 3 - player, r, c);
+      board[r][c] = EMPTY;
+      if (score > best) best = score;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+
+  function bestMove(depth) {
+    let bestScore = -Infinity, best = -1;
+    for (const c of legalMoves()) {
+      const r = lowest(c);
+      board[r][c] = P2;
+      const score = winAt(r, c, P2) ? 1000000 : -negamax(depth - 1, -1e9, 1e9, P1, r, c);
+      board[r][c] = EMPTY;
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  function render(winCells) {
+    const winSet = new Set((winCells || []).map(([r, c]) => r * COLS + c));
+    Array.from(boardEl.children).forEach((el, i) => {
+      const r = (i / COLS) | 0, c = i % COLS, v = board[r][c];
+      if (shown[i] !== v) {
+        el.innerHTML = '';
+        if (v !== EMPTY) {
+          const disc = document.createElement('span');
+          disc.className = 'disc p' + v;
+          el.appendChild(disc);
+        }
+        shown[i] = v;
+      }
+      el.classList.toggle('win', winSet.has(i));
+    });
+  }
+
+  function updateRecord() {
+    $('w1').textContent = record.w1;
+    $('w2').textContent = record.w2;
+    $('draws').textContent = record.d;
+    $('lbl1').textContent = mode === 'ai' ? 'You' : 'P1';
+    $('lbl2').textContent = mode === 'ai' ? 'AI' : 'P2';
+    $('diffChip').style.display = mode === 'ai' ? '' : 'none';
+  }
+
+  function updateTurn() {
+    if (over) return;
+    let text;
+    if (busy) text = 'AI thinking…';
+    else if (mode === '2p') text = 'Player ' + turn;
+    else text = turn === P1 ? 'Your turn' : 'AI turn';
+    $('turn').textContent = text;
+  }
+
+  function ask(ico, title, text, label, action) {
+    ovIco.textContent = ico;
+    ovTitle.textContent = title;
+    ovText.textContent = text;
+    startBtn.textContent = label;
+    overlayAction = action;
+    overlay.classList.add('show');
+  }
+
+  function finish(winner, winCells) {
+    over = true;
+    busy = false;
+    if (winner === P1) record.w1++;
+    else if (winner === P2) record.w2++;
+    else record.d++;
+    localStorage.setItem('gh.c4.record', JSON.stringify(record));
+    render(winCells);
+    updateRecord();
+
+    let text;
+    if (winner === EMPTY) text = 'The board is full — nobody connected four this time.';
+    else if (mode === '2p') text = 'Player ' + winner + ' connected four! 🎉';
+    else text = winner === P1 ? 'You connected four — nicely played! 🎉' : 'The AI connected four this time. Try blocking that column sooner.';
+    ask(winner === EMPTY ? '🤝' : '🏆', winner === EMPTY ? 'Draw' : 'Four in a row!', text, '▶ Play again', newRound);
+  }
+
+  function onColumn(c) {
+    if (over || busy) return;
+    if (mode === 'ai' && turn === P2) return;
+    if (board[0][c] !== EMPTY) return;
+
+    const r = drop(c, turn);
+    render();
+    const win = winAt(r, c, turn);
+    if (win) {
+      finish(turn, win);
+      return;
+    }
+    if (isFull()) {
+      finish(EMPTY, null);
+      return;
+    }
+    turn = 3 - turn;
+    updateTurn();
+    if (mode === 'ai' && turn === P2) aiTurn();
+  }
+
+  function aiTurn() {
+    busy = true;
+    updateTurn();
+    setTimeout(() => {
+      if (over) {
+        busy = false;
+        return;
+      }
+      const moves = legalMoves();
+      if (!moves.length) {
+        busy = false;
+        return;
+      }
+      let col;
+      if (difficulty === 'easy' && Math.random() < 0.55) {
+        col = moves[(Math.random() * moves.length) | 0];
+      } else {
+        const depth = difficulty === 'hard' ? 5 : difficulty === 'normal' ? 4 : 2;
+        col = bestMove(depth);
+      }
+      const r = drop(col, P2);
+      busy = false;
+      render();
+      const win = winAt(r, col, P2);
+      if (win) {
+        finish(P2, win);
+        return;
+      }
+      if (isFull()) {
+        finish(EMPTY, null);
+        return;
+      }
+      turn = P1;
+      updateTurn();
+    }, 300);
+  }
+
+  function newRound() {
+    board = emptyBoard();
+    shown = Array(ROWS * COLS).fill(-1);
+    turn = P1;
+    over = false;
+    busy = false;
+    overlay.classList.remove('show');
+    clearHighlight();
+    render();
+    updateRecord();
+    updateTurn();
+  }
+
+  $('startBtn').addEventListener('click', () => {
+    overlay.classList.remove('show');
+    overlayAction();
+  });
+  $('newBtn').addEventListener('click', newRound);
+  $('mode').addEventListener('change', e => {
+    mode = e.target.value;
+    newRound();
+  });
+  $('diff').addEventListener('change', e => {
+    difficulty = e.target.value;
+  });
+  boardEl.addEventListener('pointerleave', clearHighlight);
+  document.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      newRound();
+    }
+  });
+
+  newRound();
+  ask('🔴', 'Ready?', 'Click or tap a column to drop your disc. Line up four in a row — horizontally, vertically or diagonally — before your opponent does.', '▶ Start game', () => {});
+})();
+</script>
+
+</body>
+</html>
