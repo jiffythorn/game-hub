@@ -1309,6 +1309,31 @@ kbd {
 .ov-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 2px; }
 .ov-note { min-height: 1.2em; margin: 0; color: var(--pink); font-size: 12.5px; }
 
+.bingo-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, .12), rgba(56, 217, 255, .05));
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  transition: border-color .18s, color .18s, transform .18s;
+}
+
+.bingo-switch:hover {
+  border-color: rgba(139, 92, 246, .55);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.bingo-switch b { color: var(--text); }
+.bingo-switch .bs-ico { flex: none; font-size: 18px; }
+.bingo-switch .bs-go { flex: none; margin-left: auto; color: var(--purple-2); font-weight: 800; }
+
 .page-centipede .stage {
   width: min(100%, 640px);
   margin: 0 auto;
@@ -1386,6 +1411,11 @@ kbd {
   .page-bingo .hud .chip { padding: 3px 6px; font-size: 10.5px; }
   .page-bingo .hud .chip b { font-size: 12px; }
   .page-bingo .bingo-stage { padding: 6px; gap: 6px; min-height: 0; }
+  .page-bingo .bingo-stage:has(> .overlay.show) { min-height: 380px; }
+  .page-bingo .ov-actions { width: 100%; min-width: 0; }
+  .page-bingo .ov-form { width: 100%; min-width: 0; }
+  .page-bingo .ov-row > * { min-width: 0; }
+  .page-bingo .ov-form .btn { padding-left: 4px; padding-right: 4px; font-size: 11.5px; white-space: normal; }
   .page-bingo .bingo-caller { gap: 6px; }
   .page-bingo .bingo-ball { width: 56px; }
   .page-bingo .bingo-ball .bnum { font-size: 20px; }
@@ -1395,6 +1425,8 @@ kbd {
   .page-bingo .bingo-card { gap: 3px; }
   .page-bingo .bingo-actions { gap: 5px; }
   .page-bingo .bingo-actions .btn { padding: 7px 8px; font-size: 12px; }
+  .bingo-switch { margin-top: 8px; padding: 8px 10px; gap: 7px; font-size: 11.5px; }
+  .bingo-switch .bs-ico { font-size: 15px; }
 }
 
 /* Short landscape phones: park the title, buttons and HUD in a left column so

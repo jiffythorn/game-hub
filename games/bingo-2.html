@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bingo 2 — Game Hub</title>
-<meta name="description" content="A second 75-ball Bingo table. Host a live room, choose any line, four corners or blackout, add up to three smart bots, and invite friends with a 5-character code. Chat in the lobby or in game.">
+<meta name="description" content="A second 75-ball Bingo table. Host a live room, set the winning rule to any line, four corners or blackout, add up to three smart bots, and invite friends with a 5-character code. Chat in the lobby or in game.">
 <meta name="theme-color" content="#0a0d14">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎱</text></svg>">
 <link rel="stylesheet" href="../style.css">
@@ -26,7 +26,7 @@
     <div class="big">🎱</div>
     <div class="grow">
       <h1>Bingo 2</h1>
-      <p>A second table with house rules. The host picks the winning pattern — any line, four corners or blackout — calls the balls and adds smart bots. Everyone else joins with a 5-character code and chats while they daub.</p>
+      <p>A second table with house rules. The host sets the winning rule — any line, four corners or blackout — calls the balls and adds smart bots. Everyone else joins with a 5-character code and chats while they daub.</p>
     </div>
     <div class="acts">
       <a class="btn btn-green btn-sm" href="../downloads/bingo-2.zip" download>⬇ Download</a>
@@ -40,6 +40,30 @@
     <div class="chip">Last <b id="last">—</b></div>
     <div class="chip" id="bestChip">Best <b id="best">—</b></div>
     <div class="chip" id="winsChip" hidden>Wins <b id="wins">0</b></div>
+  </div>
+
+  <div class="b2-toolbar" id="nightBar" aria-label="Game night tools">
+    <label class="b2-field">Rule <select id="soloPattern" aria-label="Solo winning rule"></select></label>
+    <label class="b2-field">Format <select id="formatSel" aria-label="Game format">
+      <option value="75">75-ball</option>
+      <option value="90">90-ball</option>
+      <option value="30">30-ball speed</option>
+    </select></label>
+    <label class="b2-field">Cards <select id="soloCards" aria-label="Cards per round"><option value="1">1</option><option value="2">2</option></select></label>
+    <label class="b2-check"><input type="checkbox" id="soloAuto"> Auto-daub</label>
+    <button class="btn btn-ghost btn-sm" id="wordBtn" type="button">🔤 Word night</button>
+    <button class="btn btn-ghost btn-sm" id="peekBtn" type="button">⚡ Peek</button>
+    <button class="btn btn-ghost btn-sm" id="shieldBtn" type="button">🛡 Shield</button>
+    <button class="btn btn-ghost btn-sm" id="pointsBtn" type="button">🪙 <b id="points">150</b></button>
+    <button class="btn btn-ghost btn-sm b2-mobile-only" id="toolsBtn" type="button">⚙ Tools</button>
+    <button class="btn btn-ghost btn-sm" id="statsBtn" type="button">📊 Stats</button>
+    <button class="btn btn-ghost btn-sm" id="voiceBtn" type="button" aria-pressed="false">🔇 Voice</button>
+    <button class="btn btn-ghost btn-sm" id="soundBtn" type="button" aria-pressed="true">🔔 Sound</button>
+    <button class="btn btn-ghost btn-sm" id="tournamentBtn" type="button">🏆 Tournament</button>
+    <button class="btn btn-ghost btn-sm" id="leagueBtn" type="button">📅 League</button>
+    <button class="btn btn-ghost btn-sm" id="projectorBtn" type="button" hidden>📺 Projector</button>
+    <button class="btn btn-ghost btn-sm" id="printBtn" type="button" hidden>🖨 Print</button>
+    <button class="btn btn-ghost btn-sm" id="prizeBtn" type="button" hidden>🎁 Prize</button>
   </div>
 
   <div class="stage">
@@ -60,8 +84,9 @@
         </div>
       </div>
 
-      <div class="bingo-board">
-        <div class="bingo-cols" aria-hidden="true"><span>B</span><span>I</span><span>N</span><span>G</span><span>O</span></div>
+      <div class="b2-card-tabs" id="cardTabs" hidden></div>
+      <div class="bingo-board" id="board">
+        <div class="bingo-cols" id="bingoCols" aria-hidden="true"><span>B</span><span>I</span><span>N</span><span>G</span><span>O</span></div>
         <div class="bingo-grid" id="grid"></div>
       </div>
 
@@ -82,10 +107,16 @@
     </div>
   </div>
 
+  <a class="bingo-switch" href="bingo.html">
+    <span class="bs-ico" aria-hidden="true">🎟️</span>
+    <span><b>Original Bingo</b> — 4-character rooms and three bot tiers</span>
+    <span class="bs-go" aria-hidden="true">→</span>
+  </a>
+
   <div class="controls-hint">
     <span>Tap called numbers to daub them</span>
     <span><kbd>N</kbd> new card</span>
-    <span>Rooms: host sets the win pattern</span>
+    <span>Rooms: host sets the winning rule</span>
   </div>
 </main>
 
@@ -95,6 +126,12 @@
     <button class="chat-x" id="chatClose" type="button" aria-label="Close chat">✕</button>
   </div>
   <div class="chat-log" id="chatLog" aria-live="polite"></div>
+  <div class="b2-presets" id="chatPresets" hidden>
+    <button type="button" data-preset="👋 Hello">👋 Hello</button>
+    <button type="button" data-preset="🎉 Good luck">🎉 Good luck</button>
+    <button type="button" data-preset="😄 Nice dab">😄 Nice dab</button>
+    <button type="button" data-preset="🏆 Bingo!">🏆 Bingo!</button>
+  </div>
   <form class="chat-form" id="chatForm">
     <input id="chatInput" maxlength="140" autocomplete="off" placeholder="Say something…" aria-label="Chat message">
     <button class="btn btn-primary btn-sm" type="submit">Send</button>
@@ -122,7 +159,7 @@
           <input id="hostName" maxlength="14" autocomplete="nickname" placeholder="Host">
         </label>
         <div class="room-field-row">
-          <label class="room-field">Winning pattern
+          <label class="room-field">Winning rule
             <select id="patternSel">
               <option value="line">Any line</option>
               <option value="corners">Four corners</option>
@@ -145,6 +182,28 @@
             </select>
           </label>
         </div>
+        <div class="room-field-row">
+          <label class="room-field">Cards
+            <select id="cardCountSel"><option value="1">1 card</option><option value="2">2 cards · 25 pts</option></select>
+          </label>
+          <label class="room-field">Teams
+            <select id="teamSel"><option value="0">Off</option><option value="2">2 teams</option><option value="3">3 teams</option></select>
+          </label>
+          <label class="room-field">Chat
+            <select id="chatModeSel"><option value="free">Free chat</option><option value="preset">Presets only</option><option value="off">Chat off</option></select>
+          </label>
+        </div>
+        <div class="room-field-row">
+          <label class="room-field">Card type
+            <select id="cardTypeSel"><option value="numbers">Numbers</option><option value="words">Words / emoji</option></select>
+          </label>
+          <label class="room-field b2-check-field"><span>Auto-daub</span><span class="b2-check-wrap"><input type="checkbox" id="autoDaubSel"> On</span></label>
+          <label class="room-field b2-check-field"><span>Power-ups</span><span class="b2-check-wrap"><input type="checkbox" id="powerupsSel" checked> On</span></label>
+        </div>
+        <label class="room-field" id="wordsField" hidden>Word list <span class="b2-field-hint">24+ words or emoji, separated by commas or lines</span>
+          <textarea id="wordsInput" rows="3" placeholder="Grace, Joy, Peace, Hope, Faith, Love…"></textarea>
+        </label>
+        <p class="room-note" id="ruleHint">Win with any row, column or diagonal.</p>
         <button class="btn btn-primary room-main-btn" id="createBtn" type="submit">Create room</button>
         <p class="room-note">You are the host: this tab calls the balls, validates daubs, runs the bots and relays chat. Keep it open while people play. Chat disappears when the room closes.</p>
       </form>
@@ -182,12 +241,8 @@
           <ul class="lobby-players" id="lobbyPlayers"></ul>
 
           <div class="lobby-settings" id="hostSettings">
-            <label class="room-field">Win
-              <select id="lobbyPattern">
-                <option value="line">Any line</option>
-                <option value="corners">Four corners</option>
-                <option value="blackout">Blackout</option>
-              </select>
+            <label class="room-field">Winning rule
+              <select id="lobbyPattern"></select>
             </label>
             <label class="room-field">Pace
               <select id="lobbyPace">
@@ -204,8 +259,25 @@
                 <option value="3">3</option>
               </select>
             </label>
+            <label class="room-field">Cards
+              <select id="lobbyCards"><option value="1">1</option><option value="2">2 · 25 pts</option></select>
+            </label>
+            <label class="room-field">Teams
+              <select id="lobbyTeams"><option value="0">Off</option><option value="2">2</option><option value="3">3</option></select>
+            </label>
+            <label class="room-field">Chat
+              <select id="lobbyChat"><option value="free">Free</option><option value="preset">Presets</option><option value="off">Off</option></select>
+            </label>
+            <label class="room-field b2-check-field"><span>Auto-daub</span><span class="b2-check-wrap"><input type="checkbox" id="lobbyAuto"> On</span></label>
+            <label class="room-field b2-check-field"><span>Power-ups</span><span class="b2-check-wrap"><input type="checkbox" id="lobbyPowerups" checked> On</span></label>
           </div>
           <p class="lobby-summary" id="guestSettings" hidden></p>
+          <div class="lobby-tools">
+            <button class="btn btn-ghost btn-sm" id="leaderboardBtn" type="button">🏆 Leaderboard</button>
+            <button class="btn btn-ghost btn-sm" id="projectorLobbyBtn" type="button">📺 Projector</button>
+            <button class="btn btn-ghost btn-sm" id="printLobbyBtn" type="button">🖨 Print cards</button>
+            <button class="btn btn-ghost btn-sm" id="prizeLobbyBtn" type="button">🎁 Door prize</button>
+          </div>
 
           <button class="btn btn-primary room-main-btn" id="startRoomBtn" type="button">▶ Start game</button>
           <p class="room-note" id="lobbyWait" hidden>Waiting for the host to start…</p>
@@ -214,6 +286,12 @@
         <div class="lobby-chat-col">
           <div class="lobby-subhead"><h3>Chat</h3></div>
           <div class="chat-log lobby-log" id="lobbyChat" aria-live="polite"></div>
+          <div class="b2-presets" id="lobbyPresets" hidden>
+            <button type="button" data-preset="👋 Hello">👋 Hello</button>
+            <button type="button" data-preset="🎉 Good luck">🎉 Good luck</button>
+            <button type="button" data-preset="😄 Nice dab">😄 Nice dab</button>
+            <button type="button" data-preset="🏆 Bingo!">🏆 Bingo!</button>
+          </div>
           <form class="chat-form" id="lobbyChatForm">
             <input id="lobbyChatInput" maxlength="140" autocomplete="off" placeholder="Say hello…" aria-label="Lobby chat message">
             <button class="btn btn-primary btn-sm" type="submit">Send</button>
@@ -229,6 +307,43 @@
   </div>
 </div>
 
+<div class="b2-sheet" id="sheetModal" hidden>
+  <div class="b2-sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="b2-sheet-head">
+      <h2 id="sheetTitle">Game night</h2>
+      <button class="room-x" id="sheetClose" type="button" aria-label="Close">✕</button>
+    </div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<div class="b2-projector" id="projector" hidden>
+  <div class="b2-projector-head">
+    <div><span>Bingo 2 · Game night</span><strong id="projectorRoom">ROOM —</strong></div>
+    <div class="b2-projector-actions">
+      <button class="btn btn-ghost btn-sm" id="projectorClose" type="button">✕ Close</button>
+    </div>
+  </div>
+  <div class="b2-projector-main">
+    <div class="b2-projector-call"><span id="projectorLetter">★</span><b id="projectorNum">?</b><em id="projectorLabel">Ready</em></div>
+    <div class="b2-projector-side">
+      <div class="b2-projector-card"><span>Winning rule</span><b id="projectorRule">Any line</b></div>
+      <div class="b2-projector-card"><span>Called</span><b id="projectorBalls">0 / 75</b></div>
+      <div class="b2-projector-card"><span>Players</span><b id="projectorPlayers">—</b></div>
+    </div>
+  </div>
+  <div class="b2-projector-grid" id="projectorGrid"></div>
+  <div class="b2-projector-bottom">
+    <div class="b2-projector-qrwrap"><span>Scan to join</span><div id="projectorQR" class="b2-qr"></div><b id="projectorCode">—</b></div>
+    <div class="b2-projector-board" id="projectorBoard"></div>
+    <div class="b2-projector-board" id="projectorTeams"></div>
+  </div>
+</div>
+
+<div class="b2-print" id="printSheet" aria-hidden="true"></div>
+<canvas class="b2-confetti" id="confetti" aria-hidden="true"></canvas>
+
+<script src="../qrcode.js"></script>
 <script>
 (() => {
   'use strict';
@@ -250,6 +365,10 @@
   const lobbyCode = $('lobbyCode'), lobbyPlayers = $('lobbyPlayers'), lobbyCount = $('lobbyCount');
   const hostSettings = $('hostSettings'), guestSettings = $('guestSettings');
   const startRoomBtn = $('startRoomBtn'), lobbyWait = $('lobbyWait'), lobbyChat = $('lobbyChat');
+  const boardEl = $('board'), bingoCols = $('bingoCols'), cardTabs = $('cardTabs');
+  const sheetModal = $('sheetModal'), sheetTitle = $('sheetTitle'), sheetBody = $('sheetBody'), sheetClose = $('sheetClose');
+  const projectorEl = $('projector');
+  const printSheet = $('printSheet');
 
   const LETTERS = ['B', 'I', 'N', 'G', 'O'];
   const LINES = [];
@@ -257,10 +376,21 @@
   for (let c = 0; c < 5; c++) LINES.push([0, 1, 2, 3, 4].map(r => r * 5 + c));
   LINES.push([0, 6, 12, 18, 24], [4, 8, 12, 16, 20]);
 
+  const FULL_MASK = [...Array(25).keys()];
+  const BORDER = [0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24];
   const PATTERNS = {
-    line: {label: 'Any line', note: 'row, column or diagonal'},
-    corners: {label: 'Four corners', note: 'all four corner squares'},
-    blackout: {label: 'Blackout', note: 'every square on the card'}
+    line: {label: 'Any line', note: 'row, column or diagonal', kind: 'line'},
+    corners: {label: 'Four corners', note: 'all four corner squares', mask: [0, 4, 20, 24]},
+    blackout: {label: 'Blackout', note: 'every square on the card', mask: FULL_MASK},
+    x: {label: 'Letter X', note: 'both diagonals', mask: [0, 4, 6, 8, 12, 16, 18, 20, 24]},
+    frame: {label: 'Picture frame', note: 'the outside border', mask: BORDER},
+    diamond: {label: 'Diamond', note: 'the centre diamond', mask: [2, 6, 8, 12, 16, 18, 22]},
+    stamp: {label: 'Postage stamp', note: 'a 3×3 corner block', mask: [0, 1, 2, 5, 6, 7, 10, 11, 12]},
+    checker: {label: 'Checkers', note: 'the checkerboard squares', mask: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24]},
+    tee: {label: 'Letter T', note: 'the top row and centre column', mask: [0, 1, 2, 3, 4, 7, 12, 17, 22]},
+    hotel: {label: 'Letter H', note: 'both sides and the middle row', mask: [0, 4, 5, 9, 10, 14, 15, 19, 20, 24]},
+    heart: {label: 'Heart', note: 'the heart shape', mask: [1, 2, 3, 5, 6, 8, 9, 12, 14, 15, 18, 19, 23]},
+    arrow: {label: 'Up arrow', note: 'the arrow shape', mask: [2, 6, 7, 8, 10, 11, 12, 13, 14, 17, 22]}
   };
   const PACES = {chill: 1700, classic: 1200, fast: 800};
   const PACE_LABELS = {chill: 'Chill', classic: 'Classic', fast: 'Fast'};
@@ -269,13 +399,75 @@
   const MAX_PLAYERS = 8;
   const BEST_KEY = 'gh.bingo2.best';
   const NAME_KEY = 'gh.bingo2.name';
+  const WALLET_KEY = 'gh.bingo2.wallet';
+  const STATS_KEY = 'gh.bingo2.stats';
+  const SETTINGS_KEY = 'gh.bingo2.settings';
+  const LEAGUE_KEY = 'gh.bingo2.league';
+  const DEFAULT_WORDS = ['Grace', 'Joy', 'Peace', 'Hope', 'Faith', 'Love', 'Mercy', 'Light', 'Song', 'Prayer', 'Friend', 'Family', 'Community', 'Harvest', 'Garden', 'River', 'Mountain', 'Morning', 'Sunshine', 'Coffee', 'Potluck', 'Music', 'Celebrate', 'Bingo'];
+  const COSMETICS = [
+    {id: 'midnight', type: 'skin', name: 'Midnight card', icon: '🌙', cost: 150},
+    {id: 'sunshine', type: 'skin', name: 'Sunshine card', icon: '☀️', cost: 150},
+    {id: 'heart', type: 'dauber', name: 'Heart dauber', icon: '💗', cost: 60},
+    {id: 'paw', type: 'dauber', name: 'Paw dauber', icon: '🐾', cost: 60},
+    {id: 'confetti', type: 'dauber', name: 'Confetti dauber', icon: '🎉', cost: 90},
+    {id: 'retro', type: 'theme', name: 'Retro hall', icon: '🎟️', cost: 200}
+  ];
+  const BADGE_DEFS = [
+    {id: 'first', name: 'First Bingo', icon: '🎉'},
+    {id: 'blackout', name: 'Blackout Hero', icon: '🌑'},
+    {id: 'speed', name: 'Quick Card', icon: '⚡'},
+    {id: 'pattern', name: 'Pattern Master', icon: '🧩'},
+    {id: 'host', name: 'Host Hero', icon: '🏠'},
+    {id: 'streak', name: 'Three-Night Streak', icon: '🔥'},
+    {id: 'rich', name: 'Point Collector', icon: '🪙'},
+    {id: 'team', name: 'Team Player', icon: '🤝'}
+  ];
 
   let best = parseInt(localStorage.getItem(BEST_KEY), 10);
   if (!Number.isFinite(best) || best <= 0) best = null;
+  let savedSettings = {};
+  try { savedSettings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; } catch (e) {}
+  let stats = loadJson(STATS_KEY, {rounds: 0, wins: 0, balls: 0, bestBalls: null, blackouts: 0, lines: 0, corners: 0, patterns: 0, daubs: 0, calls: 0, hosted: 0, teamWins: 0, lastPlayed: '', history: []});
+  let wallet = loadJson(WALLET_KEY, {points: 150, lifetime: 0, badges: [], owned: {skin: ['classic'], dauber: ['star'], theme: ['neon']}, equipped: {skin: 'classic', dauber: 'star', theme: 'neon'}, event: {active: false, balance: 200}});
+  let league = loadJson(LEAGUE_KEY, []);
 
-  let cells = [], pool = [], calledSet = new Set();
+  function loadJson(key, fallback) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || 'null');
+      return value && typeof value === 'object' ? value : fallback;
+    } catch (e) { return fallback; }
+  }
+  function saveJson(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+  function saveWallet() { saveJson(WALLET_KEY, wallet); updateWalletUI(); }
+  function saveStats() { saveJson(STATS_KEY, stats); }
+  function saveSettings() { saveJson(SETTINGS_KEY, {voice: voiceOn, sound: soundOn, autoDaub: soloAuto, format: soloFormat, cards: soloCardCount, pattern: soloPattern, words: soloWordMode ? soloWords : null}); }
+
+  wallet.owned = wallet.owned || {};
+  wallet.owned.skin = Array.isArray(wallet.owned.skin) ? wallet.owned.skin : ['classic'];
+  wallet.owned.dauber = Array.isArray(wallet.owned.dauber) ? wallet.owned.dauber : ['star'];
+  wallet.owned.theme = Array.isArray(wallet.owned.theme) ? wallet.owned.theme : ['neon'];
+  wallet.equipped = wallet.equipped || {skin: 'classic', dauber: 'star', theme: 'neon'};
+  wallet.event = wallet.event || {active: false, balance: 200};
+  wallet.badges = Array.isArray(wallet.badges) ? wallet.badges : [];
+
+  let cells = [], myCards = [], activeCard = 0, pool = [], calledSet = new Set();
   let balls = 0, running = false, finished = false, timer = null, last = null;
   let overlayAction = () => {};
+  let soloFormat = savedSettings.format || '75';
+  let soloPattern = savedSettings.pattern in PATTERNS ? savedSettings.pattern : 'line';
+  let soloCardCount = Number(savedSettings.cards) === 2 ? 2 : 1;
+  let soloAuto = savedSettings.autoDaub !== false;
+  let soloWordMode = !!savedSettings.words;
+  let soloWords = Array.isArray(savedSettings.words) && savedSettings.words.length >= 24 ? savedSettings.words : DEFAULT_WORDS.slice();
+  let voiceOn = !!savedSettings.voice;
+  let soundOn = savedSettings.sound !== false;
+  let solo90Stage = 0;
+  let roundSeed = 0, roundRng = Math.random, roundLog = [], extraCardPaid = false;
+  let shieldCount = 0, peekActive = false;
+  let tournament = null;
+  let audioCtx = null;
 
   let mode = 'solo';
   let peer = null, hostConn = null;
@@ -284,6 +476,8 @@
   let roster = [];
   let roomCode = '', selfId = 'host', myName = '';
   let roomPattern = 'line', roomPace = PACES.classic, roomBots = 0;
+  let roomCards = 1, roomAuto = false, roomTeams = 0, roomChatMode = 'free', roomPowerups = true;
+  let roomWordMode = false, roomWords = [];
   let roomCalled = new Set(), roomBalls = 0, roomLast = null, roomPool = [];
   let roomTimer = null, roomRunning = false, roomFinished = false, roomRound = 0;
   let myRound = 0;
@@ -298,16 +492,49 @@
   let lastHostSeen = 0;
   let hostHidden = false;
 
-  const letterFor = n => LETTERS[Math.floor((n - 1) / 15)];
-  const shuffle = a => {
+  function currentFormat() { return mode === 'solo' ? soloFormat : '75'; }
+  function isWordGame() { return mode === 'solo' ? soloWordMode : roomWordMode; }
+  function letterFor(n) {
+    if (isWordGame() || currentFormat() === '90' || currentFormat() === '30') return '★';
+    return LETTERS[Math.floor((n - 1) / 15)];
+  }
+  function callLabel(n) {
+    if (isWordGame()) return roomWords[n - 1] || soloWords[n - 1] || '—';
+    return String(n);
+  }
+  function callText(n, label) {
+    if (isWordGame()) return label || callLabel(n);
+    const l = letterFor(n);
+    return (l === '★' ? '' : l + ' ') + n;
+  }
+  function shuffle(a, rng = Math.random) {
     for (let i = a.length - 1; i > 0; i--) {
-      const j = (Math.random() * (i + 1)) | 0;
+      const j = (rng() * (i + 1)) | 0;
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
-  };
+  }
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a += 0x6D2B79F5;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function randomSeed() {
+    if (window.crypto && crypto.getRandomValues) {
+      const a = new Uint32Array(1);
+      crypto.getRandomValues(a);
+      return a[0] || 1;
+    }
+    return (Math.random() * 0xffffffff) >>> 0 || 1;
+  }
   const isRoom = () => mode === 'host' || mode === 'guest';
   const patternLabel = p => (PATTERNS[p] || PATTERNS.line).label;
+  const patternNote = p => (PATTERNS[p] || PATTERNS.line).note;
   const paceFor = v => PACES[v] || PACES.classic;
 
   function cleanName(value) {
@@ -330,10 +557,10 @@
     return 0;
   }
 
-  function makeCard() {
+  function makeCard(rng = Math.random) {
     const card = Array(25);
     for (let c = 0; c < 5; c++) {
-      const nums = shuffle(Array.from({length: 15}, (_, i) => c * 15 + i + 1)).slice(0, 5).sort((a, b) => a - b);
+      const nums = shuffle(Array.from({length: 15}, (_, i) => c * 15 + i + 1), rng).slice(0, 5).sort((a, b) => a - b);
       for (let r = 0; r < 5; r++) {
         const free = r === 2 && c === 2;
         card[r * 5 + c] = {n: free ? 0 : nums[r], col: c, row: r, free, daubed: free};
@@ -342,12 +569,53 @@
     return card;
   }
 
-  function cardFromNumbers(nums) {
+  function makeWordCard(words, rng = Math.random) {
+    const source = (words && words.length ? words : DEFAULT_WORDS).slice(0, 24);
+    const items = shuffle(source.map((label, i) => ({label, n: i + 1})), rng);
+    const card = Array(25);
+    for (let i = 0; i < 25; i++) {
+      const free = i === 12;
+      const item = items[i > 12 ? i - 1 : i] || {label: '—', n: 0};
+      card[i] = {n: free ? 0 : item.n, label: free ? '' : item.label, col: i % 5, row: Math.floor(i / 5), free, daubed: free};
+    }
+    return card;
+  }
+
+  function make90Card(rng = Math.random) {
+    for (let attempt = 0; attempt < 500; attempt++) {
+      const rowCols = [];
+      const counts = Array(9).fill(0);
+      for (let r = 0; r < 3; r++) {
+        const cols = shuffle([0,1,2,3,4,5,6,7,8], rng).slice(0, 5).sort((a, b) => a - b);
+        rowCols.push(cols);
+        cols.forEach(c => counts[c]++);
+      }
+      if (counts.some(c => c < 1 || c > 3)) continue;
+      const card = Array.from({length: 27}, (_, i) => ({blank: true, n: 0, col: i % 9, row: Math.floor(i / 9), daubed: false}));
+      for (let c = 0; c < 9; c++) {
+        const min = c === 0 ? 1 : c * 10;
+        const max = c === 8 ? 90 : c * 10 + 9;
+        const nums = shuffle(Array.from({length: max - min + 1}, (_, i) => min + i), rng).slice(0, counts[c]).sort((a, b) => a - b);
+        const rows = [0,1,2].filter(r => rowCols[r].includes(c));
+        rows.forEach((r, i) => { card[r * 9 + c] = {blank: false, n: nums[i], col: c, row: r, daubed: false}; });
+      }
+      return card;
+    }
+    return make90Card(Math.random);
+  }
+
+  function make30Card(rng = Math.random) {
+    const nums = shuffle(Array.from({length: 30}, (_, i) => i + 1), rng).slice(0, 9).sort((a, b) => a - b);
+    return nums.map((n, i) => ({n, col: i % 3, row: Math.floor(i / 3), daubed: false}));
+  }
+
+  function cardFromNumbers(nums, words) {
     const list = Array.isArray(nums) ? nums : [];
     const card = Array(25);
     for (let i = 0; i < 25; i++) {
       const free = i === 12;
-      card[i] = {n: free ? 0 : (Number(list[i]) || 0), col: i % 5, row: Math.floor(i / 5), free, daubed: free};
+      const n = free ? 0 : (Number(list[i]) || 0);
+      card[i] = {n, label: free ? '' : (words && words[n - 1] ? words[n - 1] : ''), col: i % 5, row: Math.floor(i / 5), free, daubed: free};
     }
     return card;
   }
@@ -355,33 +623,83 @@
   const cardNumbers = card => card.map(c => c.n);
 
   function findWin(card, pattern) {
-    if (pattern === 'blackout') {
-      return card.every(c => c.daubed) ? card.map((_, i) => i) : null;
+    const def = PATTERNS[pattern] || PATTERNS.line;
+    if (def.kind === 'line') {
+      for (const line of LINES) {
+        if (line.every(i => card[i].daubed)) return line;
+      }
+      return null;
     }
-    if (pattern === 'corners') {
-      const corners = [0, 4, 20, 24];
-      return corners.every(i => card[i].daubed) ? corners : null;
+    return def.mask.every(i => card[i] && card[i].daubed) ? def.mask.slice() : null;
+  }
+
+  function find90Win(card, stage) {
+    const rows = [0,1,2].map(r => Array.from({length: 9}, (_, c) => r * 9 + c));
+    const complete = rows.map(row => row.every(i => card[i].blank || card[i].daubed));
+    if (stage === 0) {
+      const r = complete.indexOf(true);
+      if (r >= 0) return {stage: 1, cells: rows[r].filter(i => !card[i].blank), label: 'One line'};
+      return null;
     }
-    for (const line of LINES) {
-      if (line.every(i => card[i].daubed)) return line;
+    if (stage === 1) {
+      if (complete.filter(Boolean).length >= 2) return {stage: 2, cells: card.map((c, i) => c.daubed ? i : -1).filter(i => i >= 0), label: 'Two lines'};
+      return null;
     }
-    return null;
+    return card.every(c => c.blank || c.daubed) ? {stage: 3, cells: card.map((c, i) => c.daubed ? i : -1).filter(i => i >= 0), label: 'Full house'} : null;
+  }
+
+  function find30Win(card) {
+    return card.every(c => c.daubed) ? card.map((_, i) => i) : null;
   }
 
   /* ---------------- shared board UI ---------------- */
 
+  function cellLabel(cell) {
+    if (!cell) return '';
+    if (cell.free) return 'Free space — already daubed';
+    return (cell.label || callText(cell.n)) + (cell.daubed ? ', daubed' : '');
+  }
+
   function renderCard() {
+    const fmt = currentFormat();
+    boardEl.className = 'bingo-board' + (fmt === '90' ? ' grid-90' : fmt === '30' ? ' grid-30' : '');
+    bingoCols.hidden = fmt !== '75' || isWordGame();
     grid.innerHTML = '';
     cells.forEach((cell, i) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'bingo-cell' + (cell.free ? ' free' : '') + (cell.daubed ? ' daubed' : '') + (cell.pending ? ' pending' : '');
-      b.textContent = cell.free ? 'FREE' : cell.n;
+      b.className = 'bingo-cell' + (cell.free ? ' free' : '') + (cell.daubed ? ' daubed' : '') + (cell.pending ? ' pending' : '') + (cell.label ? ' word' : '') + (cell.blank ? ' blank' : '');
+      b.textContent = cell.blank ? '' : (cell.free ? 'FREE' : (cell.label || cell.n));
       b.dataset.i = i;
-      b.setAttribute('aria-label', cell.free ? 'Free space — already daubed' : `${LETTERS[cell.col]} ${cell.n}${cell.daubed ? ', daubed' : ''}`);
+      b.disabled = !!cell.blank;
+      b.setAttribute('aria-label', cellLabel(cell));
       b.addEventListener('click', () => handleCell(i));
       grid.appendChild(b);
     });
+    renderCardTabs();
+  }
+
+  function renderCardTabs() {
+    if (!cardTabs) return;
+    cardTabs.hidden = myCards.length < 2;
+    if (myCards.length < 2) { cardTabs.innerHTML = ''; return; }
+    cardTabs.innerHTML = '';
+    myCards.forEach((card, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'b2-card-tab' + (i === activeCard ? ' on' : '');
+      const won = currentFormat() === '75' ? !!findWin(card, isRoom() ? roomPattern : soloPattern) : false;
+      b.innerHTML = `Card ${i + 1}${won ? ' <span class="b2-tab-win">★</span>' : ''}`;
+      b.addEventListener('click', () => setActiveCard(i));
+      cardTabs.appendChild(b);
+    });
+  }
+
+  function setActiveCard(i) {
+    if (!myCards[i]) return;
+    activeCard = i;
+    cells = myCards[i];
+    renderCard();
   }
 
   function refreshCell(i) {
@@ -390,22 +708,25 @@
     if (!el || !cell) return;
     el.classList.toggle('daubed', !!cell.daubed);
     el.classList.toggle('pending', !!cell.pending);
-    el.setAttribute('aria-label', cell.free ? 'Free space — already daubed' : `${LETTERS[cell.col]} ${cell.n}${cell.daubed ? ', daubed' : ''}`);
+    el.classList.toggle('word', !!cell.label);
+    el.setAttribute('aria-label', cellLabel(cell));
   }
 
   function updateHud() {
     ballsEl.textContent = balls;
-    lastEl.textContent = last ? last.l + ' ' + last.n : '—';
+    lastEl.textContent = last ? (last.label || (last.l + ' ' + last.n)) : '—';
     bestEl.textContent = best ? best + ' balls' : '—';
     winsEl.textContent = myWins();
+    const pointsEl = $('points');
+    if (pointsEl) pointsEl.textContent = walletPoints();
   }
 
   function showCall() {
     if (last) {
       callLetter.textContent = last.l;
-      callNum.textContent = last.n;
-      callTitle.textContent = 'Ball ' + balls;
-      callNote.textContent = 'Tap ' + last.l + ' ' + last.n + ' on your card.';
+      callNum.textContent = last.label || last.n;
+      callTitle.textContent = isWordGame() ? 'Call ' + balls : 'Ball ' + balls;
+      callNote.textContent = isWordGame() ? 'Tap “' + (last.label || last.n) + '” on your card.' : 'Tap ' + last.l + ' ' + last.n + ' on your card.';
     } else {
       callLetter.textContent = '★';
       callNum.textContent = '?';
@@ -416,12 +737,12 @@
 
   function status(text) { statusEl.textContent = text; }
 
-  function addHistory(l, n) {
+  function addHistory(l, n, label) {
     const chip = document.createElement('span');
     chip.className = 'bingo-chip';
     const letter = document.createElement('i');
     letter.textContent = String(l);
-    chip.append(letter, document.createTextNode(String(n)));
+    chip.append(letter, document.createTextNode(label || String(n)));
     historyEl.appendChild(chip);
     historyEl.scrollLeft = historyEl.scrollWidth;
   }
@@ -457,7 +778,7 @@
 
   /* ---------------- solo ---------------- */
 
-  function soloReset() {
+  function soloReset(keepPaid = false) {
     clearInterval(timer);
     timer = null;
     running = false;
@@ -465,14 +786,41 @@
     balls = 0;
     last = null;
     calledSet = new Set();
-    pool = shuffle(Array.from({length: 75}, (_, i) => i + 1));
-    cells = makeCard();
     pendingDaubs.clear();
+    if (!keepPaid) extraCardPaid = false;
+    solo90Stage = 0;
+    shieldCount = 0;
+    peekActive = false;
+    soloFormat = $('formatSel').value || '75';
+    soloPattern = $('soloPattern').value in PATTERNS ? $('soloPattern').value : 'line';
+    soloCardCount = Number($('soloCards').value) === 2 ? 2 : 1;
+    soloAuto = !!$('soloAuto').checked;
+    if (soloFormat === '90' || soloFormat === '30') { soloCardCount = 1; soloWordMode = false; }
+    roundSeed = randomSeed();
+    roundRng = mulberry32(roundSeed);
+    roundLog = [];
+    if (soloFormat === '90') {
+      myCards = [make90Card(roundRng)];
+      pool = shuffle(Array.from({length: 90}, (_, i) => i + 1), roundRng);
+    } else if (soloFormat === '30') {
+      myCards = [make30Card(roundRng)];
+      pool = shuffle(Array.from({length: 30}, (_, i) => i + 1), roundRng);
+    } else if (soloWordMode) {
+      soloWords = cleanWords(soloWords);
+      myCards = Array.from({length: soloCardCount}, () => makeWordCard(soloWords, roundRng));
+      pool = shuffle(Array.from({length: 24}, (_, i) => i + 1), roundRng);
+    } else {
+      myCards = Array.from({length: soloCardCount}, () => makeCard(roundRng));
+      pool = shuffle(Array.from({length: 75}, (_, i) => i + 1), roundRng);
+    }
+    activeCard = 0;
+    cells = myCards[0];
     renderCard();
     clearHistory();
     updateHud();
     showCall();
-    status('Tap each called number on your card.');
+    updateSoloControls();
+    status(soloFormat === '90' ? '90-ball: complete one line, then two lines, then the full house.' : soloFormat === '30' ? '30-ball speed: cover all nine numbers.' : 'Tap each called number on your card.');
     overlay.classList.remove('show');
   }
 
@@ -483,44 +831,116 @@
       return;
     }
     const n = pool.pop();
-    const l = letterFor(n);
-    last = {l, n};
+    const label = soloFormat === '75' || soloFormat === '90' || soloFormat === '30' ? '' : callLabel(n);
+    last = {l: letterFor(n), n, label};
     balls++;
     calledSet.add(n);
+    stats.calls++;
+    roundLog.push({n, label: label || String(n), at: Date.now()});
     updateHud();
     showCall();
-    addHistory(l, n);
+    addHistory(last.l, n, last.label);
+    speakCall(last);
+    playSound('call');
+    if (soloAuto) setTimeout(soloAutoDaub, 260);
+  }
+
+  function soloAutoDaub() {
+    if (!running) return;
+    let changed = false;
+    myCards.forEach(card => card.forEach((cell, i) => {
+      if (!cell.blank && !cell.free && !cell.daubed && calledSet.has(cell.n)) {
+        cell.daubed = true;
+        changed = true;
+        stats.daubs++;
+      }
+    }));
+    if (changed) { cells = myCards[activeCard]; renderCard(); }
+    if (soloFormat === '90' || soloFormat === '30') { soloCheckWin(); return; }
+    const hitIndex = myCards.findIndex(card => !!findWin(card, soloPattern));
+    if (hitIndex >= 0) {
+      if (hitIndex !== activeCard) setActiveCard(hitIndex);
+      soloWin(findWin(myCards[hitIndex], soloPattern), patternLabel(soloPattern));
+    }
   }
 
   function soloStart() {
     if (mode !== 'solo') return;
     if (running) return;
-    if (finished || !cells.length) soloReset();
+    if (soloCardCount === 2 && !extraCardPaid) {
+      if (!walletSpend(25, 'Extra card')) {
+        soloCardCount = 1;
+        $('soloCards').value = '1';
+        status('Not enough Daub Points for a second card — playing one card.');
+      } else {
+        extraCardPaid = true;
+      }
+      soloReset(extraCardPaid);
+    }
+    if (finished || !myCards.length) soloReset(extraCardPaid);
     running = true;
     finished = false;
     overlay.classList.remove('show');
     clearInterval(timer);
-    timer = setInterval(soloCallBall, 1200);
+    const pace = soloFormat === '30' ? 700 : soloFormat === '90' ? 1000 : 1200;
+    timer = setInterval(soloCallBall, pace);
     soloCallBall();
   }
 
   function soloDaub(i) {
     if (!running) return;
     const cell = cells[i];
-    if (!cell || cell.free || cell.daubed) return;
+    if (!cell || cell.free || cell.blank || cell.daubed) return;
     if (!calledSet.has(cell.n)) {
-      status(`${letterFor(cell.n)} ${cell.n} hasn't been called yet.`);
+      if (shieldCount > 0) {
+        shieldCount--;
+        updateSoloControls();
+        status('Shield used — that square was not called yet.');
+        playSound('shield');
+        return;
+      }
+      status(`${callText(cell.n, cell.label)} hasn't been called yet.`);
       shake(i);
+      playSound('wrong');
       return;
     }
     cell.daubed = true;
+    stats.daubs++;
     refreshCell(i);
-    status(`Daubed ${letterFor(cell.n)} ${cell.n}.`);
-    const line = findWin(cells, 'line');
-    if (line) soloWin(line);
+    status(`Daubed ${callText(cell.n, cell.label)}.`);
+    playSound('daub');
+    soloCheckWin();
   }
 
-  function soloWin(line) {
+  function soloCheckWin() {
+    if (!running) return;
+    if (soloFormat === '90') {
+      const hit = find90Win(cells, solo90Stage);
+      if (!hit) return;
+      solo90Stage = hit.stage;
+      hit.cells.forEach(i => { if (grid.children[i]) grid.children[i].classList.add('win'); });
+      if (hit.stage < 3) {
+        const points = hit.stage === 1 ? 20 : 35;
+        walletEarn(points, hit.label);
+        status(`${hit.label}! Keep going for ${hit.stage === 1 ? 'two lines' : 'the full house'}.`);
+        speak(hit.label + '!');
+        celebrate(18);
+        setTimeout(() => hit.cells.forEach(i => { if (grid.children[i]) grid.children[i].classList.remove('win'); }), 1600);
+        return;
+      }
+      soloWin(hit.cells, 'Full house');
+      return;
+    }
+    if (soloFormat === '30') {
+      const hit = find30Win(cells);
+      if (hit) soloWin(hit, 'Coverall');
+      return;
+    }
+    const hit = findWin(cells, soloPattern);
+    if (hit) soloWin(hit, patternLabel(soloPattern));
+  }
+
+  function soloWin(line, label) {
     running = false;
     finished = true;
     clearInterval(timer);
@@ -531,9 +951,27 @@
       best = balls;
       localStorage.setItem(BEST_KEY, String(best));
     }
+    stats.rounds++;
+    stats.wins++;
+    stats.balls += balls;
+    stats.bestBalls = stats.bestBalls === null ? balls : Math.min(stats.bestBalls, balls);
+    if (soloPattern === 'blackout' || label === 'Full house' || label === 'Coverall') stats.blackouts++;
+    if (soloPattern === 'corners') stats.corners++;
+    if (soloPattern === 'line') stats.lines++;
+    if (soloPattern !== 'line' && soloPattern !== 'corners' && soloPattern !== 'blackout') stats.patterns++;
+    stats.lastPlayed = new Date().toISOString().slice(0, 10);
+    stats.history.unshift({at: Date.now(), format: soloFormat, label, balls, seed: roundSeed});
+    stats.history = stats.history.slice(0, 30);
+    saveStats();
+    const points = label === 'Coverall' || label === 'Full house' ? 100 : soloPattern === 'blackout' ? 100 : soloPattern === 'corners' ? 35 : 25;
+    walletEarn(points, label + ' win');
+    checkBadges();
+    finishTournamentRound(true);
     updateHud();
-    status('Bingo! Line complete.');
-    const text = `Line completed after ${balls} balls.` + (isBest ? ' That is a new best!' : ` Best: ${best} balls.`);
+    status('Bingo! ' + label + ' complete.');
+    speak('Bingo!');
+    celebrate();
+    const text = `${label} completed after ${balls} balls.` + (isBest ? ' That is a new best!' : ` Best: ${best} balls.`);
     showOverlay('🎉', 'BINGO!', text, '▶ New card', () => {
       soloReset();
       soloStart();
@@ -545,14 +983,510 @@
     finished = true;
     clearInterval(timer);
     timer = null;
-    status('All 75 balls called — no line this time.');
-    showOverlay('🫥', 'No line this time', 'All 75 balls were called before a line filled. Shuffle a new card and try again.', '↻ New card', () => {
+    stats.rounds++;
+    stats.lastPlayed = new Date().toISOString().slice(0, 10);
+    stats.history.unshift({at: Date.now(), format: soloFormat, label: 'No bingo', balls, seed: roundSeed});
+    stats.history = stats.history.slice(0, 30);
+    saveStats();
+    walletEarn(5, 'Round played');
+    finishTournamentRound(false);
+    status('All balls called — no bingo this time.');
+    showOverlay('🫥', 'No bingo this time', 'Every ball was called before the card filled. Shuffle a new card and try again.', '↻ New card', () => {
       soloReset();
       soloStart();
     });
   }
 
+  function updateSoloControls() {
+    const fmt = $('formatSel').value || '75';
+    const words = fmt === '75' && soloWordMode;
+    $('soloPattern').disabled = fmt !== '75' || words;
+    $('soloCards').disabled = fmt !== '75';
+    $('soloAuto').checked = soloAuto;
+    $('peekBtn').textContent = `⚡ Peek${peekActive ? ' ✓' : ''}`;
+    $('shieldBtn').textContent = `🛡 Shield${shieldCount ? ' ×' + shieldCount : ''}`;
+    $('wordBtn').textContent = words ? '🔤 Word night ✓' : '🔤 Word night';
+    $('wordBtn').setAttribute('aria-pressed', String(words));
+  }
+
+  /* ---------------- wallet, badges and cosmetics ---------------- */
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function cleanWords(list) {
+    const source = Array.isArray(list) ? list : String(list || '').split(/[,\n]/);
+    const out = [];
+    source.forEach(item => {
+      const text = String(item || '').replace(/\s+/g, ' ').trim().slice(0, 28);
+      if (text && !out.some(x => x.toLowerCase() === text.toLowerCase())) out.push(text);
+    });
+    return out.slice(0, 24);
+  }
+
+  function walletPoints() {
+    return wallet.event && wallet.event.active ? Number(wallet.event.balance) || 0 : Number(wallet.points) || 0;
+  }
+
+  function updateWalletUI() {
+    const el = $('points');
+    if (el) el.textContent = walletPoints();
+    const btn = $('pointsBtn');
+    if (btn) btn.title = wallet.event.active ? 'Event wallet' : 'Daub Points';
+    applyCosmetics();
+  }
+
+  function applyCosmetics() {
+    const e = wallet.equipped || {};
+    document.body.dataset.skin = e.skin || 'classic';
+    document.body.dataset.dauber = e.dauber || 'star';
+    document.body.dataset.theme = e.theme || 'neon';
+  }
+
+  function walletSpend(cost, label) {
+    if (walletPoints() < cost) {
+      toast('Need ' + cost + ' Daub Points for ' + label + '.');
+      return false;
+    }
+    if (wallet.event.active) wallet.event.balance = walletPoints() - cost;
+    else wallet.points = walletPoints() - cost;
+    saveWallet();
+    toast('−' + cost + ' · ' + label);
+    return true;
+  }
+
+  function walletEarn(amount, label) {
+    const points = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!points) return;
+    if (wallet.event.active) wallet.event.balance = walletPoints() + points;
+    else wallet.points = walletPoints() + points;
+    wallet.lifetime = (Number(wallet.lifetime) || 0) + points;
+    saveWallet();
+    if (label && !wallet.event.active) toast('+' + points + ' · ' + label);
+    checkBadges();
+  }
+
+  function checkBadges() {
+    const tests = {
+      first: stats.wins >= 1,
+      blackout: stats.blackouts >= 1,
+      speed: stats.bestBalls !== null && stats.bestBalls <= 35,
+      pattern: stats.patterns >= 3,
+      host: stats.hosted >= 1,
+      streak: stats.rounds >= 3,
+      rich: wallet.lifetime >= 500,
+      team: stats.teamWins >= 1
+    };
+    const fresh = [];
+    BADGE_DEFS.forEach(def => {
+      if (tests[def.id] && !wallet.badges.includes(def.id)) {
+        wallet.badges.push(def.id);
+        fresh.push(def);
+      }
+    });
+    if (fresh.length) {
+      saveWallet();
+      fresh.forEach(def => toast('Badge earned: ' + def.icon + ' ' + def.name));
+    }
+  }
+
+  function toast(text) {
+    let el = document.querySelector('.b2-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'b2-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(el._toastTimer);
+    el._toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  function openSheet(title, html) {
+    sheetTitle.textContent = title;
+    sheetBody.innerHTML = html;
+    sheetModal.hidden = false;
+    document.body.classList.add('modal-open');
+  }
+
+  function closeSheet() {
+    sheetModal.hidden = true;
+    if (roomModal.hidden && projectorEl.hidden) document.body.classList.remove('modal-open');
+  }
+
+  function showWallet() {
+    const owned = wallet.owned || {};
+    const badges = BADGE_DEFS.map(def => `<span class="b2-badge ${wallet.badges.includes(def.id) ? 'got' : ''}">${def.icon} ${escapeHtml(def.name)}</span>`).join('');
+    const shop = COSMETICS.map(item => {
+      const list = owned[item.type] || [];
+      const isOwned = list.includes(item.id);
+      const equipped = wallet.equipped[item.type] === item.id;
+      return `<div class="b2-shop-item"><span class="ico">${item.icon}</span><b>${escapeHtml(item.name)}</b><span>${item.cost} Daub Points</span><button class="btn ${equipped ? 'btn-green' : isOwned ? 'btn-ghost' : 'btn-primary'} btn-sm" data-shop="${item.id}" data-type="${item.type}">${equipped ? 'Equipped' : isOwned ? 'Equip' : 'Buy'}</button></div>`;
+    }).join('');
+    openSheet('🪙 Daub Points', `
+      <div class="b2-wallet-top"><div class="b2-wallet-balance">🪙 <b>${walletPoints()}</b> ${wallet.event.active ? 'event points' : 'Daub Points'}</div><button class="btn btn-ghost btn-sm" id="walletEventToggle">${wallet.event.active ? 'Use main wallet' : 'Use event wallet'}</button><button class="btn btn-ghost btn-sm" id="walletEventReset">Reset event wallet</button></div>
+      <p>Earn points by finishing rounds, winning patterns and hosting. Points buy cards, daubers, card skins and room themes. No purchases, ads or cash value.</p>
+      <div class="b2-event"><label><input type="checkbox" id="walletEventCheck" ${wallet.event.active ? 'checked' : ''}> Event wallet (fixed starting balance for a club or church night)</label><span>Balance: <b>${wallet.event.balance}</b></span></div>
+      <h3>Badges</h3><div class="b2-badges">${badges}</div>
+      <h3>Cosmetics</h3><div class="b2-shop">${shop}</div>
+      <h3>Save data</h3><p>Export your points, badges and stats as a code. Import it on another device or after clearing browser data.</p>
+      <textarea id="walletExport" rows="4" readonly>${escapeHtml(JSON.stringify({wallet, stats, league}))}</textarea>
+      <div class="b2-actions"><button class="btn btn-ghost btn-sm" id="walletCopy">Copy save code</button><button class="btn btn-ghost btn-sm" id="walletImportBtn">Import code</button></div>
+      <textarea id="walletImport" rows="3" placeholder="Paste a save code here…"></textarea>
+    `);
+    $('sheetBody').querySelectorAll('[data-shop]').forEach(btn => btn.addEventListener('click', () => shopAction(btn.dataset.shop, btn.dataset.type)));
+    $('walletEventToggle').addEventListener('click', () => {
+      wallet.event.active = !wallet.event.active;
+      saveWallet();
+      showWallet();
+    });
+    $('walletEventReset').addEventListener('click', () => {
+      wallet.event.balance = 200;
+      saveWallet();
+      showWallet();
+      toast('Event wallet reset to 200');
+    });
+    $('walletEventCheck').addEventListener('change', e => {
+      wallet.event.active = e.target.checked;
+      saveWallet();
+      showWallet();
+    });
+    $('walletCopy').addEventListener('click', async () => {
+      const text = $('walletExport').value;
+      try { await navigator.clipboard.writeText(text); toast('Save code copied'); }
+      catch (e) { $('walletExport').select(); toast('Select and copy the save code'); }
+    });
+    $('walletImportBtn').addEventListener('click', () => {
+      try {
+        const data = JSON.parse($('walletImport').value);
+        if (data.wallet) wallet = data.wallet;
+        if (data.stats) stats = data.stats;
+        if (Array.isArray(data.league)) league = data.league;
+        wallet.owned = wallet.owned || {};
+        wallet.owned.skin = wallet.owned.skin || ['classic'];
+        wallet.owned.dauber = wallet.owned.dauber || ['star'];
+        wallet.owned.theme = wallet.owned.theme || ['neon'];
+        wallet.equipped = wallet.equipped || {skin:'classic',dauber:'star',theme:'neon'};
+        wallet.event = wallet.event || {active:false,balance:200};
+        wallet.badges = wallet.badges || [];
+        saveWallet(); saveStats(); saveJson(LEAGUE_KEY, league);
+        toast('Save imported');
+        showWallet();
+      } catch (e) { toast('That save code is not valid.'); }
+    });
+  }
+
+  function shopAction(id, type) {
+    const item = COSMETICS.find(x => x.id === id && x.type === type);
+    if (!item) return;
+    const owned = wallet.owned[type] || (wallet.owned[type] = []);
+    if (owned.includes(id)) {
+      wallet.equipped[type] = id;
+      saveWallet();
+      showWallet();
+      toast(item.name + ' equipped');
+      return;
+    }
+    if (!walletSpend(item.cost, item.name)) return;
+    owned.push(id);
+    wallet.equipped[type] = id;
+    saveWallet();
+    showWallet();
+    toast(item.name + ' unlocked and equipped');
+  }
+
+  function showStats() {
+    const accuracy = stats.calls ? Math.round((stats.daubs / stats.calls) * 100) : 0;
+    const history = (stats.history || []).slice(0, 8).map(h => `<div class="row"><span>${escapeHtml(h.label || 'Round')} · ${h.format || '75'}-ball</span><b>${h.balls} balls</b></div>`).join('') || '<p>No rounds yet.</p>';
+    const seedLine = roundSeed ? `Seed ${roundSeed} · ${roundLog.length} calls` : 'No solo round yet.';
+    openSheet('📊 Stats & replay', `
+      <div class="b2-stat-grid">
+        <div class="b2-stat"><b>${stats.rounds}</b><span>Rounds</span></div>
+        <div class="b2-stat"><b>${stats.wins}</b><span>Wins</span></div>
+        <div class="b2-stat"><b>${stats.bestBalls === null ? '—' : stats.bestBalls}</b><span>Best balls</span></div>
+        <div class="b2-stat"><b>${stats.blackouts}</b><span>Blackouts</span></div>
+        <div class="b2-stat"><b>${accuracy}%</b><span>Daub rate</span></div>
+        <div class="b2-stat"><b>${stats.hosted}</b><span>Hosted</span></div>
+      </div>
+      <h3>Recent rounds</h3>${history}
+      <h3>Seed & replay</h3><p>${escapeHtml(seedLine)}</p>
+      <textarea id="replayBox" rows="4" readonly>${escapeHtml(JSON.stringify({seed: roundSeed, format: soloFormat, calls: roundLog}))}</textarea>
+      <div class="b2-actions"><button class="btn btn-ghost btn-sm" id="copyReplay">Copy replay</button><button class="btn btn-ghost btn-sm" id="verifyReplay">Verify replay</button></div>
+      <textarea id="verifyBox" rows="3" placeholder="Paste a replay JSON to verify…"></textarea>
+    `);
+    $('copyReplay').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText($('replayBox').value); toast('Replay copied'); }
+      catch (e) { $('replayBox').select(); toast('Select and copy the replay'); }
+    });
+    $('verifyReplay').addEventListener('click', () => {
+      try {
+        const data = JSON.parse($('verifyBox').value || $('replayBox').value);
+        const expected = Array.isArray(data.calls) ? data.calls.map(c => Number(c.n)) : [];
+        const rng = mulberry32(Number(data.seed) || 0);
+        const pool = shuffle(Array.from({length: data.format === '90' ? 90 : data.format === '30' ? 30 : 75}, (_, i) => i + 1), rng);
+        const actual = [];
+        for (let i = 0; i < expected.length && pool.length; i++) actual.push(pool.pop());
+        const ok = actual.length === expected.length && actual.every((n, i) => n === expected[i]);
+        toast(ok ? 'Replay verified ✓' : 'Replay does not match that seed.');
+      } catch (e) { toast('Could not read that replay.'); }
+    });
+  }
+
+  /* ---------------- voice, sound and celebration ---------------- */
+
+  function speak(text) {
+    if (!voiceOn || !window.speechSynthesis || !text) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.95; u.pitch = 1.05;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function speakCall(call) {
+    if (!call) return;
+    speak(isWordGame() || soloFormat === '30' ? (call.label || String(call.n)) : `${call.l} ${call.n}`);
+  }
+
+  function ensureAudio() {
+    if (!soundOn) return null;
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playSound(kind) {
+    if (!soundOn) return;
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = kind === 'win' ? [523, 659, 784, 1047] : kind === 'call' ? [440] : kind === 'daub' ? [620] : kind === 'wrong' ? [150] : [330];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = kind === 'wrong' ? 'sawtooth' : 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now + i * 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.08, now + i * 0.06 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.06 + 0.16);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now + i * 0.06); osc.stop(now + i * 0.06 + 0.18);
+    });
+  }
+
+  function celebrate(amount = 70) {
+    const canvas = $('confetti');
+    if (!canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const colors = ['#22e3a3','#38d9ff','#ffd23f','#ff5d8f','#a78bfa'];
+    const parts = Array.from({length: amount}, () => ({x: innerWidth / 2 + (Math.random() - .5) * 160, y: innerHeight * .38, vx: (Math.random() - .5) * 9, vy: -(Math.random() * 9 + 3), size: 3 + Math.random() * 6, color: colors[(Math.random() * colors.length) | 0], life: 1}));
+    const start = performance.now();
+    function frame(t) {
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      parts.forEach(p => {
+        p.vy += .18; p.x += p.vx; p.y += p.vy; p.life -= .012;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size * .6);
+      });
+      if (t - start < 2200) requestAnimationFrame(frame);
+      else ctx.clearRect(0, 0, innerWidth, innerHeight);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------------- tournaments and club league ---------------- */
+
+  function showTools() {
+    const tools = [
+      ['wordBtn', '🔤 Word night', 'Words or emoji instead of numbers'],
+      ['peekBtn', '⚡ Peek', 'Highlight called squares'],
+      ['shieldBtn', '🛡 Shield', 'Forgive one uncalled tap'],
+      ['statsBtn', '📊 Stats & replay', 'Stats, seed and replay verification'],
+      ['voiceBtn', '🔊 Voice caller', 'Spoken calls'],
+      ['soundBtn', '🔔 Sound', 'Call, daub and win sounds'],
+      ['tournamentBtn', '🏆 Tournament', 'Three-round solo tournament'],
+      ['leagueBtn', '📅 Club league', 'Local ladder'],
+      ['projectorBtn', '📺 Projector', 'Big screen with QR join'],
+      ['printBtn', '🖨 Print cards', 'Printable cards with IDs'],
+      ['prizeBtn', '🎁 Door prize', 'Draw a present player']
+    ];
+    openSheet('⚙ Game night tools', `<div class="b2-tools-grid">${tools.map(([id,label,note]) => `<button class="b2-tool-btn" data-tool="${id}"><b>${label}</b><span>${note}</span></button>`).join('')}</div>`);
+    $('sheetBody').querySelectorAll('[data-tool]').forEach(btn => btn.addEventListener('click', () => {
+      const id = btn.dataset.tool;
+      closeSheet();
+      setTimeout(() => $(id)?.click(), 50);
+    }));
+  }
+
+  function showTournament() {
+    const standings = league.slice(0, 8).map((r, i) => `<div class="row"><span>${i + 1}. ${escapeHtml(r.name || 'Player')} · ${escapeHtml(r.format)}</span><b>${r.score} pts</b></div>`).join('') || '<p>No club league results yet.</p>';
+    openSheet('🏆 Tournament & club league', `
+      <p>Play three solo rounds. Each win scores 100 plus a bonus for an early bingo; every completed round scores 20. Results are saved locally for your club ladder.</p>
+      <label class="room-field">Player name <input type="text" id="tourneyName" maxlength="14" value="${escapeHtml(myName || localStorage.getItem(NAME_KEY) || 'Player')}"></label>
+      <label class="room-field">Nights/rounds <select id="tourneyRounds"><option value="3">3 rounds</option><option value="5">5 rounds</option></select></label>
+      <div class="b2-actions"><button class="btn btn-primary btn-sm" id="startTourney">▶ Start tournament</button><button class="btn btn-ghost btn-sm" id="clearLeague">Clear league</button></div>
+      <h3>Club league</h3>${standings}
+    `);
+    $('startTourney').addEventListener('click', () => {
+      const name = cleanName($('tourneyName').value) || 'Player';
+      tournament = {name, rounds: Number($('tourneyRounds').value) || 3, current: 0, score: 0, format: soloFormat, pattern: soloPattern};
+      closeSheet();
+      soloReset();
+      soloStart();
+      toast('Tournament started — round 1');
+    });
+    $('clearLeague').addEventListener('click', () => { league = []; saveJson(LEAGUE_KEY, league); showTournament(); });
+  }
+
+  function finishTournamentRound(won) {
+    if (!tournament) return;
+    tournament.current++;
+    tournament.score += won ? 100 + Math.max(0, 75 - balls) : 20;
+    if (tournament.current >= tournament.rounds) {
+      league.push({name: tournament.name, format: tournament.format + '-ball', score: tournament.score, at: Date.now()});
+      league.sort((a, b) => b.score - a.score);
+      league = league.slice(0, 30);
+      saveJson(LEAGUE_KEY, league);
+      walletEarn(50, 'Tournament complete');
+      const finished = tournament;
+      tournament = null;
+      setTimeout(() => openSheet('🏆 Tournament complete', `<p>${escapeHtml(finished.name)} scored <b>${finished.score}</b> points across ${finished.rounds} rounds.</p><div class="b2-actions"><button class="btn btn-primary btn-sm" id="tourneyAgain">Play again</button></div>`), 700);
+      setTimeout(() => { const b = $('tourneyAgain'); if (b) b.addEventListener('click', () => { closeSheet(); showTournament(); }); }, 760);
+    } else {
+      toast('Tournament round ' + tournament.current + ' of ' + tournament.rounds + ' · ' + tournament.score + ' pts');
+    }
+  }
+
+  function showLeague() {
+    const rows = league.map((r, i) => `<div class="row"><span>${i + 1}. ${escapeHtml(r.name)} · ${escapeHtml(r.format)}</span><b>${r.score} pts</b></div>`).join('') || '<p>No results yet. Play a tournament to start the ladder.</p>';
+    openSheet('📅 Club league', `<p>Local ladder — stored only on this device. Host a tournament night and compare scores.</p>${rows}<div class="b2-actions"><button class="btn btn-primary btn-sm" id="leagueTourney">Start a tournament</button></div>`);
+    $('leagueTourney').addEventListener('click', showTournament);
+  }
+
+  /* ---------------- word night ---------------- */
+
+  function showWordNight() {
+    openSheet('🔤 Word / emoji night', `
+      <p>Use 24 words or emoji instead of numbers. Each card gets the same list in a different order. Great for hymns, Bible books, staff names, movie quotes or family inside jokes.</p>
+      <label class="room-field">Word list<textarea id="wordListInput" rows="6">${escapeHtml(soloWords.join(', '))}</textarea></label>
+      <p class="b2-field-hint">Separate with commas or new lines. At least 24 unique items. The first 24 are used.</p>
+      <div class="b2-actions"><button class="btn btn-primary btn-sm" id="startWordNight">▶ Start word night</button><button class="btn btn-ghost btn-sm" id="numbersNight">Use numbers</button></div>
+    `);
+    $('startWordNight').addEventListener('click', () => {
+      const words = cleanWords($('wordListInput').value);
+      if (words.length < 24) { toast('Add at least 24 unique words or emoji.'); return; }
+      soloWords = words;
+      soloWordMode = true;
+      soloFormat = '75';
+      $('formatSel').value = '75';
+      saveSettings();
+      closeSheet();
+      soloReset();
+      soloStart();
+      toast('Word night started');
+    });
+    $('numbersNight').addEventListener('click', () => {
+      soloWordMode = false;
+      saveSettings();
+      closeSheet();
+      soloReset();
+      toast('Number cards restored');
+    });
+  }
+
+  /* ---------------- print pack ---------------- */
+
+  function printCards(count = 6) {
+    const words = isRoom() ? roomWords : soloWords;
+    const useWords = (isRoom() ? roomWordMode : soloWordMode) && words.length >= 24;
+    const fmt = currentFormat();
+    const cards = Array.from({length: count}, (_, i) => {
+      const id = 'B2-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+      const card = fmt === '90' ? make90Card() : useWords ? makeWordCard(words) : makeCard();
+      return {id, card, index: i + 1};
+    });
+    printSheet.innerHTML = cards.map(({id, card, index}) => {
+      const cells = card.map(c => `<div class="b2-print-cell ${c.free ? 'free' : ''} ${c.label ? 'word' : ''}">${c.blank ? '' : c.free ? 'FREE' : escapeHtml(c.label || c.n)}</div>`).join('');
+      return `<section class="b2-print-card"><div class="b2-print-head"><b>Bingo 2 · Card ${index}</b><span>ID ${id}</span></div><div class="b2-print-grid">${cells}</div><p class="b2-print-note">Rule: ${escapeHtml(isRoom() ? patternLabel(roomPattern) : patternLabel(soloPattern))} · Keep this ID for verification.</p></section>`;
+    }).join('');
+    window.print();
+  }
+
+  /* ---------------- QR and projector ---------------- */
+
+  function joinUrl() {
+    const base = location.protocol === 'file:' ? location.href.split('?')[0] : location.origin + location.pathname;
+    return roomCode ? base + '?room=' + encodeURIComponent(roomCode) : base;
+  }
+
+  function renderQR(container, text) {
+    if (!container) return;
+    container.innerHTML = '';
+    if (typeof qrcode !== 'function') { container.textContent = 'QR unavailable'; return; }
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      container.innerHTML = qr.createSvgTag(4, 0);
+    } catch (e) { container.textContent = 'QR unavailable'; }
+  }
+
+  function openProjector() {
+    projectorEl.hidden = false;
+    document.body.classList.add('modal-open');
+    renderProjector();
+    try { if (projectorEl.requestFullscreen) projectorEl.requestFullscreen(); } catch (e) {}
+  }
+
+  function closeProjector() {
+    if (document.fullscreenElement) { try { document.exitFullscreen(); } catch (e) {} }
+    projectorEl.hidden = true;
+    if (sheetModal.hidden && roomModal.hidden) document.body.classList.remove('modal-open');
+  }
+
+  function renderProjector() {
+    if (projectorEl.hidden) return;
+    const inRoom = isRoom();
+    const fmt = inRoom ? (roomWordMode ? 24 : 75) : (soloFormat === '90' ? 90 : soloFormat === '30' ? 30 : isWordGame() ? 24 : 75);
+    const called = inRoom ? roomCalled : calledSet;
+    const pattern = inRoom ? roomPattern : soloPattern;
+    $('projectorRoom').textContent = inRoom ? 'ROOM ' + (roomCode || '—') : 'SOLO TABLE';
+    $('projectorRule').textContent = inRoom ? patternLabel(pattern) : (soloFormat === '90' ? 'One line → two lines → full house' : soloFormat === '30' ? 'Coverall' : patternLabel(pattern));
+    $('projectorBalls').textContent = (inRoom ? roomBalls : balls) + ' / ' + fmt;
+    $('projectorPlayers').textContent = inRoom ? String(roster.length) : '1';
+    const lastCall = inRoom ? roomLast : last;
+    $('projectorLetter').textContent = lastCall ? lastCall.l : '★';
+    $('projectorNum').textContent = lastCall ? (lastCall.label || lastCall.n) : '?';
+    $('projectorLabel').textContent = lastCall ? (lastCall.label ? 'Word call' : 'Ball call') : 'Ready';
+    $('projectorGrid').innerHTML = Array.from(called).slice(-18).map(n => `<span class="hit">${escapeHtml(inRoom && roomWordMode ? (roomWords[n - 1] || n) : (inRoom ? n : (soloFormat === '75' ? callText(n) : n)))}</span>`).join('');
+    $('projectorCode').textContent = inRoom ? roomCode : 'OFFLINE';
+    renderQR($('projectorQR'), joinUrl());
+    const people = inRoom ? roster.slice().sort((a, b) => (b.wins || 0) - (a.wins || 0)) : [{name: 'Solo table', wins: stats.wins, bot: false}];
+    $('projectorBoard').innerHTML = '<h4>Leaderboard</h4>' + people.slice(0, 8).map(p => `<div class="row"><span>${escapeHtml(p.name)}</span><b>${p.wins || 0} wins</b></div>`).join('');
+    const teamRows = roomTeams ? [1,2,3].slice(0, roomTeams).map(t => ({t, score: people.filter(p => p.team === t).reduce((n, p) => n + (p.wins || 0), 0)})).map(x => `<div class="row"><span class="b2-team-${x.t === 1 ? 'red' : x.t === 2 ? 'blue' : 'gold'}">Team ${x.t === 1 ? 'Red' : x.t === 2 ? 'Blue' : 'Gold'}</span><b>${x.score}</b></div>`).join('') : '<p style="color:#93a0bd;font-size:12px">Teams are off for this room.</p>';
+    $('projectorTeams').innerHTML = '<h4>Teams</h4>' + teamRows;
+  }
+
   /* ---------------- room UI ---------------- */
+
+  function teamLabel(team) {
+    return team === 1 ? 'Red' : team === 2 ? 'Blue' : team === 3 ? 'Gold' : '';
+  }
+
+  function assignTeams() {
+    let i = 0;
+    roomPlayers.forEach(p => { p.team = roomTeams ? (i++ % roomTeams) + 1 : 0; });
+  }
 
   function updateModeUi() {
     const inRoom = isRoom();
@@ -564,8 +1498,26 @@
     newBtn.hidden = inRoom;
     roomsBtn.hidden = inRoom;
     if (inRoom) overlay.classList.remove('show');
+    ['soloPattern', 'formatSel', 'soloCards', 'soloAuto', 'wordBtn', 'tournamentBtn', 'leagueBtn'].forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      const label = el.closest('label');
+      if (label) label.hidden = inRoom;
+      else el.hidden = inRoom;
+    });
+    $('peekBtn').hidden = inRoom && !roomPowerups;
+    $('shieldBtn').hidden = inRoom && !roomPowerups;
+    $('projectorBtn').hidden = false;
+    $('printBtn').hidden = mode === 'guest';
+    $('prizeBtn').hidden = mode !== 'host';
+    $('projectorLobbyBtn').hidden = false;
+    $('printLobbyBtn').hidden = mode !== 'host';
+    $('prizeLobbyBtn').hidden = mode !== 'host';
     updateHud();
+    updateWalletUI();
+    updateChatUi();
     if (inRoom) renderRoomBar();
+    renderProjector();
   }
 
   function renderRoomBar() {
@@ -576,7 +1528,7 @@
     roster.forEach(p => {
       const chip = document.createElement('span');
       chip.className = 'room-player' + (p.id === selfId ? ' me' : '') + (p.connected === false ? ' off' : '');
-      chip.textContent = (p.bot ? '🤖 ' : '') + p.name + (p.wins ? ' ×' + p.wins : '');
+      chip.textContent = (p.bot ? '🤖 ' : '') + p.name + (p.team ? ' · ' + teamLabel(p.team) : '') + (p.wins ? ' ×' + p.wins : '');
       chip.title = p.id === selfId ? 'You' : (p.bot ? 'Smart bot' : 'Player');
       roomPlayersEl.appendChild(chip);
     });
@@ -609,6 +1561,7 @@
     hostSettings.hidden = mode !== 'host';
     guestSettings.hidden = mode !== 'guest';
     renderLobby();
+    updateChatUi();
   }
 
   function openRoomModal(tab) {
@@ -648,9 +1601,21 @@
       name.textContent = p.name;
       const tags = document.createElement('span');
       tags.className = 'lobby-tags';
-      tags.textContent = [p.id === 'host' ? 'HOST' : '', p.bot ? 'BOT' : '', p.id === selfId ? 'YOU' : '', p.wins ? p.wins + ' WIN' + (p.wins === 1 ? '' : 'S') : '']
+      tags.textContent = [p.id === 'host' ? 'HOST' : '', p.bot ? 'BOT' : '', p.team ? teamLabel(p.team).toUpperCase() : '', p.id === selfId ? 'YOU' : '', p.wins ? p.wins + ' WIN' + (p.wins === 1 ? '' : 'S') : '']
         .filter(Boolean).join(' · ');
       li.append(avatar, name, tags);
+      if (mode === 'host' && p.id !== 'host') {
+        const actions = document.createElement('span');
+        actions.className = 'b2-player-actions';
+        const mute = document.createElement('button');
+        mute.type = 'button'; mute.className = 'b2-mini-btn'; mute.textContent = p.muted ? '🔊' : '🔇'; mute.title = p.muted ? 'Unmute chat' : 'Mute chat';
+        mute.addEventListener('click', () => { p.muted = !p.muted; broadcastLobby(); renderLobby(); });
+        const kick = document.createElement('button');
+        kick.type = 'button'; kick.className = 'b2-mini-btn'; kick.textContent = '✕'; kick.title = 'Remove from room';
+        kick.addEventListener('click', () => kickPlayer(p.id));
+        actions.append(mute, kick);
+        li.appendChild(actions);
+      }
       lobbyPlayers.appendChild(li);
     });
 
@@ -660,6 +1625,11 @@
       $('lobbyPattern').value = roomPattern;
       $('lobbyPace').value = Object.keys(PACES).find(k => PACES[k] === roomPace) || 'classic';
       $('lobbyBots').value = String(roomBots);
+      $('lobbyCards').value = String(roomCards);
+      $('lobbyTeams').value = String(roomTeams);
+      $('lobbyChat').value = roomChatMode;
+      $('lobbyAuto').checked = roomAuto;
+      $('lobbyPowerups').checked = roomPowerups;
       startRoomBtn.hidden = false;
       lobbyWait.hidden = true;
       startRoomBtn.disabled = roster.length < 2;
@@ -667,13 +1637,39 @@
     } else {
       hostSettings.hidden = true;
       guestSettings.hidden = false;
-      guestSettings.textContent = `Win: ${patternLabel(roomPattern)} · Pace: ${PACE_LABELS[Object.keys(PACES).find(k => PACES[k] === roomPace)] || 'Classic'} · Bots: ${roster.filter(p => p.bot).length}`;
+      guestSettings.textContent = `Rule: ${patternLabel(roomPattern)} · Pace: ${PACE_LABELS[Object.keys(PACES).find(k => PACES[k] === roomPace)] || 'Classic'} · ${roomWordMode ? 'Words' : 'Numbers'} · Cards: ${roomCards} · Teams: ${roomTeams ? teamLabel(1) + '/' + teamLabel(2) : 'off'} · Bots: ${roster.filter(p => p.bot).length}`;
       startRoomBtn.hidden = true;
       lobbyWait.hidden = false;
       lobbyWait.textContent = roster.length < 2 ? 'Waiting for more players…' : 'Waiting for the host to start…';
     }
 
     renderChat();
+  }
+
+  function kickPlayer(id) {
+    const p = roomPlayers.get(id);
+    if (!p || p.id === 'host') return;
+    sendTo(id, {t: 'kick', reason: 'The host removed you from the room.'});
+    try { if (p.conn) p.conn.close(); } catch (e) {}
+    removeGuest(id);
+    systemChat(p.name + ' was removed by the host.');
+  }
+
+  function showLeaderboard() {
+    const rows = roster.slice().sort((a, b) => (b.wins || 0) - (a.wins || 0)).map((p, i) => `<div class="row"><span>${i + 1}. ${escapeHtml(p.name)}${p.team ? ' · ' + teamLabel(p.team) : ''}</span><b>${p.wins || 0} wins</b></div>`).join('') || '<p>No players in the room.</p>';
+    const teams = roomTeams ? [1,2,3].slice(0, roomTeams).map(t => `<div class="row"><span>Team ${teamLabel(t)}</span><b>${roster.filter(p => p.team === t).reduce((n, p) => n + (p.wins || 0), 0)} wins</b></div>`).join('') : '';
+    openSheet('🏆 Leaderboard', `<h3>Players</h3>${rows}${teams ? '<h3>Teams</h3>' + teams : ''}`);
+  }
+
+  function showPrize() {
+    if (mode !== 'host') { toast('Only the host can draw a door prize.'); return; }
+    const humans = [...roomPlayers.values()].filter(p => !p.bot && p.connected !== false);
+    if (!humans.length) { toast('No human players to draw from.'); return; }
+    const winner = humans[(Math.random() * humans.length) | 0];
+    celebrate(45);
+    openSheet('🎁 Door prize', `<p>Random draw from <b>${humans.length}</b> present player${humans.length === 1 ? '' : 's'}. Bots are excluded.</p><div class="b2-wallet-balance" style="font-size:24px">🎉 ${escapeHtml(winner.name)}</div><div class="b2-actions"><button class="btn btn-primary btn-sm" id="drawAgain">Draw again</button><button class="btn btn-ghost btn-sm" id="prizeDone">Done</button></div>`);
+    $('drawAgain').addEventListener('click', showPrize);
+    $('prizeDone').addEventListener('click', closeSheet);
   }
 
   /* ---------------- chat ---------------- */
@@ -729,6 +1725,8 @@
   }
 
   function sendChatFrom(input) {
+    if (roomChatMode === 'off') { toast('Chat is turned off in this room.'); return; }
+    if (roomChatMode === 'preset') { toast('This room uses preset messages only.'); return; }
     const text = cleanText(input.value);
     if (!text) return;
     if (Date.now() - lastChatAt < 350) return;
@@ -742,8 +1740,19 @@
     }
   }
 
+  function sendPreset(text) {
+    if (roomChatMode === 'off') return;
+    if (mode === 'host') {
+      const me = roomPlayers.get('host');
+      if (me) hostChat(me, text);
+    } else if (mode === 'guest' && hostConn && hostConn.open) {
+      hostConn.send({t: 'chat', text, preset: true});
+    }
+  }
+
   function hostChat(player, text) {
-    const msg = {from: player.name, text, at: Date.now()};
+    if (player && player.muted) return;
+    const msg = {from: player ? player.name : 'Guest', text, at: Date.now()};
     pushChat(msg);
     broadcast({t: 'chat', ...msg});
   }
@@ -901,6 +1910,8 @@
       id: p.id,
       name: p.name,
       wins: p.wins || 0,
+      team: p.team || 0,
+      muted: !!p.muted,
       bot: !!p.bot,
       connected: p.connected !== false
     }));
@@ -914,11 +1925,13 @@
   }
 
   function broadcastLobby() {
+    assignTeams();
     roster = publicPlayers();
-    broadcast({t: 'lobby', code: roomCode, pattern: roomPattern, pace: roomPace, players: roster});
+    broadcast({t: 'lobby', code: roomCode, pattern: roomPattern, pace: roomPace, cards: roomCards, auto: roomAuto, teams: roomTeams, chatMode: roomChatMode, powerups: roomPowerups, wordsMode: roomWordMode, words: roomWords, players: roster});
     updateHud();
     renderRoomBar();
     if (!roomLobby.hidden) renderLobby();
+    renderProjector();
   }
 
   function registerGuest(conn, name) {
@@ -936,13 +1949,17 @@
     const player = {
       id: conn.peer,
       name: cleanName(name) || 'Guest',
+      cards: null,
       card: null,
       wins: 0,
+      team: 0,
+      muted: false,
       bot: false,
       connected: true,
       conn
     };
     roomPlayers.set(player.id, player);
+    assignTeams();
     hostConns.set(player.id, conn);
     try {
       conn.send({
@@ -951,6 +1968,13 @@
         code: roomCode,
         pattern: roomPattern,
         pace: roomPace,
+        cards: roomCards,
+        auto: roomAuto,
+        teams: roomTeams,
+        chatMode: roomChatMode,
+        powerups: roomPowerups,
+        wordsMode: roomWordMode,
+        words: roomWords,
         players: publicPlayers(),
         chat: chat.slice(-40),
         running: false,
@@ -978,56 +2002,64 @@
     const p = roomPlayers.get(conn.peer);
     if (!p) return;
     if (data.t === 'chat') {
+      if (roomChatMode === 'off') return;
+      if (roomChatMode === 'preset' && !data.preset) return;
       const text = cleanText(data.text);
       if (text) hostChat(p, text);
       return;
     }
     if (data.t === 'daub' && roomRunning) {
       if (Number(data.round) !== roomRound) return;
+      const cardIndex = Math.max(0, Math.min(roomCards - 1, Number(data.card) || 0));
+      const card = p.cards && p.cards[cardIndex];
+      if (!card) return;
       const n = Number(data.n);
-      const idx = p.card ? p.card.findIndex(c => c.n === n) : -1;
-      if (idx < 0 || p.card[idx].free || p.card[idx].daubed) return;
+      const idx = card.findIndex(c => c.n === n);
+      if (idx < 0 || card[idx].free || card[idx].daubed) return;
       if (!roomCalled.has(n)) {
-        sendTo(p.id, {t: 'denied', n, reason: 'That ball has not been called yet.'});
+        sendTo(p.id, {t: 'denied', n, card: cardIndex, reason: roomWordMode ? 'That word has not been called yet.' : 'That ball has not been called yet.'});
         return;
       }
-      hostDaub(p, idx);
+      hostDaub(p, idx, cardIndex);
     }
   }
 
-  function hostDaub(p, idx) {
-    if (!roomRunning || !p.card) return;
+  function hostDaub(p, idx, cardIndex = 0) {
+    if (!roomRunning || !p || !p.cards) return;
     if (roomPlayers.get(p.id) !== p) return;
-    const cell = p.card[idx];
-    if (!cell || cell.free || cell.daubed) return;
+    const card = p.cards[cardIndex];
+    if (!card) return;
+    const cell = card[idx];
+    if (!cell || cell.blank || cell.free || cell.daubed) return;
     cell.daubed = true;
-    if (p.id === 'host') {
+    if (p.id === 'host' && cardIndex === activeCard) {
       refreshCell(idx);
-      status(`Daubed ${letterFor(cell.n)} ${cell.n}.`);
+      status(`Daubed ${callText(cell.n, cell.label)}.`);
     }
-    broadcast({t: 'daub', player: p.id, n: cell.n});
-    const win = findWin(p.card, roomPattern);
-    if (win) endRoomRound(p, win);
+    broadcast({t: 'daub', player: p.id, card: cardIndex, n: cell.n, label: cell.label || ''});
+    const win = findWin(card, roomPattern);
+    if (win) endRoomRound(p, win, cardIndex);
   }
 
   function botReact(bot, n) {
-    if (!bot.card) return;
+    if (!bot.cards || !bot.cards.length) return;
+    const card = bot.cards[0];
     const tryDaub = (idx, chance) => {
-      const cell = bot.card[idx];
+      const cell = card[idx];
       if (!cell || cell.free || cell.daubed) return;
       if (Math.random() > chance) return;
       const delay = 260 + Math.random() * 720;
       setTimeout(() => {
         if (!roomRunning) return;
-        const current = bot.card[idx];
-        if (current && !current.daubed) hostDaub(bot, idx);
+        const current = card[idx];
+        if (current && !current.daubed) hostDaub(bot, idx, 0);
       }, delay);
     };
-    const fresh = bot.card.findIndex(c => c.n === n);
+    const fresh = card.findIndex(c => c.n === n);
     if (fresh >= 0) tryDaub(fresh, 0.94);
     roomCalled.forEach(called => {
       if (called === n) return;
-      const idx = bot.card.findIndex(c => c.n === called);
+      const idx = card.findIndex(c => c.n === called);
       if (idx >= 0) tryDaub(idx, 0.28);
     });
   }
@@ -1035,25 +2067,39 @@
   function callRoomBall() {
     if (!roomRunning || mode !== 'host') return;
     if (!roomPool.length) {
-      endRoomRound(null, null);
+      endRoomRound(null, null, 0);
       return;
     }
     const n = roomPool.pop();
     roomCalled.add(n);
     roomBalls++;
-    roomLast = {l: letterFor(n), n};
+    const label = roomWordMode ? (roomWords[n - 1] || '') : '';
+    roomLast = {l: letterFor(n), n, label};
     balls = roomBalls;
     last = roomLast;
     updateHud();
     showCall();
-    addHistory(last.l, last.n);
-    broadcast({t: 'call', n, balls: roomBalls, last: last.l});
-    roomPlayers.forEach(p => {
-      if (p.bot) botReact(p, n);
-    });
+    addHistory(last.l, last.n, last.label);
+    broadcast({t: 'call', n, balls: roomBalls, last: last.l, label});
+    speakCall(last);
+    playSound('call');
+    if (roomAuto) {
+      setTimeout(() => {
+        if (!roomRunning) return;
+        roomPlayers.forEach(p => {
+          if (!p.cards) return;
+          p.cards.forEach((card, ci) => card.forEach((cell, i) => {
+            if (roomRunning && !cell.blank && !cell.free && !cell.daubed && roomCalled.has(cell.n)) hostDaub(p, i, ci);
+          }));
+        });
+      }, 260);
+    } else {
+      roomPlayers.forEach(p => { if (p.bot) botReact(p, n); });
+    }
+    renderProjector();
   }
 
-  function endRoomRound(winner, winCells) {
+  function endRoomRound(winner, winCells, cardIndex = 0) {
     if (!roomRunning) return;
     roomRunning = false;
     roomFinished = true;
@@ -1063,25 +2109,38 @@
     finished = true;
     if (winner) winner.wins = (winner.wins || 0) + 1;
     if (winner && winner.id === 'host' && winCells) {
+      if (winner.cards && winner.cards[cardIndex] && winner.cards[cardIndex] !== cells) setActiveCard(cardIndex);
       winCells.forEach(i => { if (grid.children[i]) grid.children[i].classList.add('win'); });
     }
     roster = publicPlayers();
     updateHud();
     renderRoomBar();
+    const humans = [...roomPlayers.values()].filter(p => !p.bot);
+    humans.forEach(p => {
+      const points = winner && p.id === winner.id ? 50 + 5 * humans.length : 10;
+      if (p.id === 'host') walletEarn(points, winner && winner.id === 'host' ? 'Room win' : 'Round played');
+      else sendTo(p.id, {t: 'award', points, reason: winner && winner.id === p.id ? 'Room win' : 'Round played'});
+    });
+    if (mode === 'host') { stats.hosted++; saveStats(); checkBadges(); }
     const payload = {
       t: 'end',
       winnerId: winner ? winner.id : null,
       winnerName: winner ? winner.name : '',
       winCells: winCells || [],
+      card: cardIndex,
       balls: roomBalls,
       players: roster,
-      pattern: roomPattern
+      pattern: roomPattern,
+      wordsMode: roomWordMode
     };
     broadcast(payload);
     const title = winner ? winner.name + ' wins!' : 'No winner this round';
     const text = winner
-      ? `${patternLabel(roomPattern)} completed after ${roomBalls} balls.`
-      : 'All 75 balls were called before anyone completed the pattern. Try again with a fresh card.';
+      ? `${patternLabel(roomPattern)} completed after ${roomBalls} calls.`
+      : 'All calls were made before anyone completed the pattern. Try again with a fresh card.';
+    if (winner && winner.id === 'host') celebrate();
+    playSound('win');
+    renderProjector();
     if (mode === 'host') {
       showOverlay(winner ? '🎉' : '🫥', title, text, '▶ Next round', hostStartRound, {label: 'Leave room', action: leaveRoom});
     }
@@ -1096,18 +2155,25 @@
       setRoomError('Add a smart bot or invite a friend before starting.');
       return;
     }
+    if (roomCards === 2 && !walletSpend(25, 'Extra cards')) {
+      roomCards = 1;
+      toast('Not enough points for two cards — starting with one.');
+    }
     const hostPlayer = roomPlayers.get('host');
     roomRound++;
-    roomPool = shuffle(Array.from({length: 75}, (_, i) => i + 1));
+    roomPool = shuffle(roomWordMode ? Array.from({length: 24}, (_, i) => i + 1) : Array.from({length: 75}, (_, i) => i + 1));
     roomCalled = new Set();
     roomBalls = 0;
     roomLast = null;
     roomRunning = true;
     roomFinished = false;
     roomPlayers.forEach(p => {
-      p.card = makeCard();
+      p.cards = Array.from({length: roomCards}, () => roomWordMode ? makeWordCard(roomWords) : makeCard());
+      p.card = p.cards[0];
     });
-    cells = hostPlayer.card;
+    myCards = hostPlayer.cards;
+    activeCard = 0;
+    cells = myCards[0];
     calledSet = roomCalled;
     balls = 0;
     last = null;
@@ -1130,14 +2196,21 @@
       if (p.conn) {
         sendTo(p.id, {
           t: 'start',
-          card: cardNumbers(p.card),
+          cards: p.cards.map(cardNumbers),
+          card: cardNumbers(p.cards[0]),
           pattern: roomPattern,
           pace: roomPace,
           players: roster,
           called: [],
           balls: 0,
           last: null,
-          round: roomRound
+          round: roomRound,
+          wordsMode: roomWordMode,
+          words: roomWords,
+          auto: roomAuto,
+          teams: roomTeams,
+          chatMode: roomChatMode,
+          powerups: roomPowerups
         });
       }
     });
@@ -1159,8 +2232,11 @@
       roomPlayers.set('bot-' + name.toLowerCase(), {
         id: 'bot-' + name.toLowerCase(),
         name,
+        cards: null,
         card: null,
         wins: 0,
+        team: 0,
+        muted: false,
         bot: true,
         connected: true,
         conn: null
@@ -1176,6 +2252,17 @@
     roomPattern = $('patternSel').value in PATTERNS ? $('patternSel').value : 'line';
     roomPace = paceFor($('paceSel').value);
     roomBots = Math.max(0, Math.min(3, Number($('botSel').value) || 0));
+    roomCards = Number($('cardCountSel').value) === 2 ? 2 : 1;
+    roomAuto = !!$('autoDaubSel').checked;
+    roomTeams = Number($('teamSel').value) || 0;
+    roomChatMode = $('chatModeSel').value || 'free';
+    roomPowerups = !!$('powerupsSel').checked;
+    roomWordMode = $('cardTypeSel').value === 'words';
+    roomWords = cleanWords($('wordsInput').value);
+    if (roomWordMode && roomWords.length < 24) {
+      setRoomError('Word rooms need at least 24 unique words or emoji.');
+      return;
+    }
     clearRoomError();
     connecting = true;
     $('createBtn').disabled = true;
@@ -1204,13 +2291,17 @@
       roomPlayers.set('host', {
         id: 'host',
         name,
+        cards: null,
         card: null,
         wins: 0,
+        team: 1,
+        muted: false,
         bot: false,
         connected: true,
         conn: null
       });
       setBotCount(roomBots);
+      assignTeams();
       roomRunning = false;
       roomFinished = false;
       roomTimer = null;
@@ -1339,6 +2430,13 @@
         roomCode = data.code;
         roomPattern = data.pattern in PATTERNS ? data.pattern : 'line';
         roomPace = Number(data.pace) || PACES.classic;
+        roomCards = Number(data.cards) === 2 ? 2 : 1;
+        roomAuto = !!data.auto;
+        roomTeams = Number(data.teams) || 0;
+        roomChatMode = data.chatMode || 'free';
+        roomPowerups = data.powerups !== false;
+        roomWordMode = !!data.wordsMode;
+        roomWords = Array.isArray(data.words) ? data.words.slice(0, 24) : [];
         roster = Array.isArray(data.players) ? data.players : [];
         chat = Array.isArray(data.chat) ? data.chat.slice() : [];
         unread = 0;
@@ -1359,10 +2457,19 @@
         roomCode = data.code || roomCode;
         roomPattern = data.pattern in PATTERNS ? data.pattern : roomPattern;
         roomPace = Number(data.pace) || roomPace;
+        roomCards = Number(data.cards) === 2 ? 2 : roomCards;
+        roomAuto = !!data.auto;
+        roomTeams = Number(data.teams) || 0;
+        roomChatMode = data.chatMode || roomChatMode;
+        roomPowerups = data.powerups !== false;
+        roomWordMode = !!data.wordsMode;
+        roomWords = Array.isArray(data.words) ? data.words.slice(0, 24) : roomWords;
         roster = Array.isArray(data.players) ? data.players : roster;
         updateHud();
         renderRoomBar();
         renderLobby();
+        updateChatUi();
+        renderProjector();
         break;
       }
       case 'start':
@@ -1374,44 +2481,58 @@
         if (!n) return;
         calledSet.add(n);
         balls = Number(data.balls) || balls + 1;
-        last = {l: data.last || letterFor(n), n};
+        last = {l: data.last || letterFor(n), n, label: data.label || ''};
         updateHud();
         showCall();
-        addHistory(last.l, n);
+        addHistory(last.l, n, last.label);
         const has = cells.some(c => c.n === n);
-        status(has ? `Ball ${last.l} ${last.n} — tap it on your card.` : `Ball ${last.l} ${last.n} — no match on your card.`);
+        status(has ? `${callText(n, last.label)} — tap it on your card.` : `${callText(n, last.label)} — no match on your card.`);
+        speakCall(last);
+        playSound('call');
+        renderProjector();
         break;
       }
       case 'daub': {
         const n = Number(data.n);
         if (!n) return;
+        const cardIndex = Math.max(0, Math.min(myCards.length - 1, Number(data.card) || 0));
+        const card = myCards[cardIndex];
         if (data.player === selfId) {
-          const idx = cells.findIndex(c => c.n === n);
+          const idx = card ? card.findIndex(c => c.n === n) : -1;
           if (idx >= 0) {
-            cells[idx].daubed = true;
-            cells[idx].pending = false;
-            refreshCell(idx);
+            card[idx].daubed = true;
+            card[idx].pending = false;
+            if (cardIndex === activeCard) refreshCell(idx);
             pendingDaubs.delete(n);
-            status(`Daubed ${letterFor(n)} ${n}.`);
+            status(`Daubed ${callText(n, card[idx].label)}.`);
+            playSound('daub');
+            renderCardTabs();
           }
         } else {
           const p = roster.find(x => x.id === data.player);
-          if (p && !p.bot) status(`${p.name} daubed ${letterFor(n)} ${n}.`);
+          if (p && !p.bot) status(`${p.name} daubed ${callText(n, data.label)}.`);
         }
         break;
       }
       case 'denied': {
         const n = Number(data.n);
         pendingDaubs.delete(n);
-        const idx = cells.findIndex(c => c.n === n);
+        const card = myCards[Math.max(0, Math.min(myCards.length - 1, Number(data.card) || 0))];
+        const idx = card ? card.findIndex(c => c.n === n) : -1;
         if (idx >= 0) {
-          cells[idx].pending = false;
-          refreshCell(idx);
+          card[idx].pending = false;
+          if (card === cells) refreshCell(idx);
           shake(idx);
         }
         status(data.reason || 'That daub was not accepted.');
         break;
       }
+      case 'award':
+        if (data.points) walletEarn(Number(data.points) || 0, data.reason || 'Room award');
+        break;
+      case 'kick':
+        if (mode === 'guest') { toast(data.reason || 'Removed from room.'); goSolo('👋', 'Removed from room', data.reason || 'The host removed you.', '▶ Play solo'); }
+        break;
       case 'end':
         guestEnd(data);
         break;
@@ -1435,9 +2556,18 @@
     mode = 'guest';
     roomPattern = data.pattern in PATTERNS ? data.pattern : 'line';
     roomPace = Number(data.pace) || PACES.classic;
+    roomCards = Number(data.cards && data.cards.length) || 1;
+    roomAuto = !!data.auto;
+    roomTeams = Number(data.teams) || 0;
+    roomChatMode = data.chatMode || 'free';
+    roomPowerups = data.powerups !== false;
+    roomWordMode = !!data.wordsMode;
+    roomWords = Array.isArray(data.words) ? data.words.slice(0, 24) : [];
     myRound = Number(data.round) || 0;
     roster = Array.isArray(data.players) ? data.players : roster;
-    cells = cardFromNumbers(data.card);
+    myCards = (Array.isArray(data.cards) ? data.cards : [data.card]).map(nums => cardFromNumbers(nums, roomWordMode ? roomWords : null));
+    activeCard = 0;
+    cells = myCards[0];
     calledSet = new Set(Array.isArray(data.called) ? data.called.map(Number) : []);
     balls = Number(data.balls) || 0;
     last = null;
@@ -1446,18 +2576,20 @@
     running = true;
     finished = false;
     pendingDaubs.clear();
+    shieldCount = 0;
     renderCard();
     clearHistory();
-    calledSet.forEach(n => addHistory(letterFor(n), n));
+    calledSet.forEach(n => addHistory(letterFor(n), n, roomWordMode ? roomWords[n - 1] : ''));
     updateHud();
     showCall();
-    status(`Win with ${PATTERNS[roomPattern].note}. Tap called numbers.`);
+    status(`Win with ${PATTERNS[roomPattern].note}. Tap called ${roomWordMode ? 'words' : 'numbers'}.`);
     closeRoomModal();
     closeChat();
     overlay.classList.remove('show');
     startBtn.disabled = false;
     updateModeUi();
     renderRoomBar();
+    updateChatUi();
   }
 
   function guestEnd(data) {
@@ -1470,16 +2602,37 @@
     renderRoomBar();
     const winner = data.winnerId ? roster.find(p => p.id === data.winnerId) : null;
     const winCells = Array.isArray(data.winCells) ? data.winCells : [];
-    if (data.winnerId === selfId) {
+    const cardIndex = Math.max(0, Math.min(myCards.length - 1, Number(data.card) || 0));
+    const card = myCards[cardIndex];
+    if (data.winnerId === selfId && card) {
+      if (card !== cells) setActiveCard(cardIndex);
       winCells.forEach(i => { if (grid.children[i]) grid.children[i].classList.add('win'); });
     }
     const title = data.winnerId ? (data.winnerId === selfId ? 'BINGO!' : (winner ? winner.name + ' wins!' : 'Round over')) : 'No winner this round';
     const text = data.winnerId
-      ? `${patternLabel(data.pattern || roomPattern)} completed after ${data.balls || balls} balls.`
-      : 'All 75 balls were called before anyone completed the pattern.';
+      ? `${patternLabel(data.pattern || roomPattern)} completed after ${data.balls || balls} calls.`
+      : 'All calls were made before anyone completed the pattern.';
+    if (data.winnerId === selfId) { celebrate(); playSound('win'); speak('Bingo!'); }
     showOverlay(data.winnerId === selfId ? '🎉' : '🎱', title, text, 'Waiting for host…', () => {}, {label: 'Leave room', action: leaveRoom});
     startBtn.disabled = true;
     status(data.winnerId ? title : 'Round over — waiting for the host.');
+  }
+
+  function updateChatUi() {
+    const disabled = roomChatMode !== 'free';
+    ['chatInput', 'lobbyChatInput'].forEach(id => { const el = $(id); if (el) el.disabled = disabled; });
+    const hint = roomChatMode === 'off' ? 'Chat is off in this room.' : roomChatMode === 'preset' ? 'Preset messages only.' : 'Say something…';
+    ['chatInput', 'lobbyChatInput'].forEach(id => { const el = $(id); if (el) el.placeholder = hint; });
+    ['chatPresets', 'lobbyPresets'].forEach(id => { const el = $(id); if (el) el.hidden = roomChatMode !== 'preset'; });
+  }
+
+  function sendPresetMessage(text) {
+    if (roomChatMode === 'off') { toast('Chat is off in this room.'); return; }
+    if (mode === 'guest' && hostConn && hostConn.open) hostConn.send({t: 'chat', text, preset: true});
+    else if (mode === 'host') {
+      const me = roomPlayers.get('host');
+      if (me) hostChat(me, text);
+    }
   }
 
   function hostGone() {
@@ -1556,21 +2709,22 @@
     if (mode === 'host') {
       if (!roomRunning) return;
       const cell = cells[i];
-      if (!cell || cell.free || cell.daubed) return;
+      if (!cell || cell.blank || cell.free || cell.daubed) return;
       if (!roomCalled.has(cell.n)) {
-        status(`${letterFor(cell.n)} ${cell.n} hasn't been called yet.`);
+        status(`${callText(cell.n, cell.label)} hasn't been called yet.`);
         shake(i);
         return;
       }
-      hostDaub(roomPlayers.get('host'), i);
+      hostDaub(roomPlayers.get('host'), i, activeCard);
       return;
     }
     if (mode === 'guest') {
       if (!running || !hostConn || !hostConn.open) return;
       const cell = cells[i];
-      if (!cell || cell.free || cell.daubed || cell.pending) return;
+      if (!cell || cell.blank || cell.free || cell.daubed || cell.pending) return;
       if (!calledSet.has(cell.n)) {
-        status(`${letterFor(cell.n)} ${cell.n} hasn't been called yet.`);
+        if (roomPowerups && shieldCount > 0) { shieldCount--; updateSoloControls(); status('Shield used — not called yet.'); return; }
+        status(`${callText(cell.n, cell.label)} hasn't been called yet.`);
         shake(i);
         return;
       }
@@ -1579,14 +2733,14 @@
       cell.pending = true;
       refreshCell(i);
       try {
-        hostConn.send({t: 'daub', n: cell.n, round: myRound});
+        hostConn.send({t: 'daub', n: cell.n, card: activeCard, round: myRound});
       } catch (e) {
         pendingDaubs.delete(cell.n);
         cell.pending = false;
         refreshCell(i);
         return;
       }
-      status(`Sending ${letterFor(cell.n)} ${cell.n} to the host…`);
+      status(`Sending ${callText(cell.n, cell.label)} to the host…`);
       setTimeout(() => {
         if (!pendingDaubs.has(cell.n)) return;
         pendingDaubs.delete(cell.n);
@@ -1674,6 +2828,81 @@
     sendChatFrom($('lobbyChatInput'));
   });
 
+  function populatePatterns() {
+    const html = Object.entries(PATTERNS).map(([id, def]) => `<option value="${id}">${def.label}</option>`).join('');
+    ['soloPattern', 'patternSel', 'lobbyPattern'].forEach(id => { const el = $(id); if (el) el.innerHTML = html; });
+  }
+
+  function updateRuleHint() {
+    const pattern = $('patternSel').value || 'line';
+    $('ruleHint').textContent = `Win with ${(PATTERNS[pattern] || PATTERNS.line).note}.`;
+  }
+
+  function updateVoiceButtons() {
+    $('voiceBtn').textContent = voiceOn ? '🔊 Voice' : '🔇 Voice';
+    $('voiceBtn').setAttribute('aria-pressed', String(voiceOn));
+    $('soundBtn').textContent = soundOn ? '🔔 Sound' : '🔕 Sound';
+    $('soundBtn').setAttribute('aria-pressed', String(soundOn));
+  }
+
+  $('patternSel').addEventListener('change', updateRuleHint);
+  $('soloPattern').addEventListener('change', () => { soloPattern = $('soloPattern').value; saveSettings(); soloReset(); });
+  $('formatSel').addEventListener('change', () => {
+    soloFormat = $('formatSel').value;
+    if (soloFormat !== '75') { soloWordMode = false; soloCardCount = 1; $('soloCards').value = '1'; }
+    saveSettings();
+    soloReset();
+    updateSoloControls();
+  });
+  $('soloCards').addEventListener('change', () => { soloCardCount = Number($('soloCards').value) === 2 ? 2 : 1; saveSettings(); soloReset(); });
+  $('soloAuto').addEventListener('change', () => { soloAuto = $('soloAuto').checked; saveSettings(); });
+  $('voiceBtn').addEventListener('click', () => { voiceOn = !voiceOn; updateVoiceButtons(); saveSettings(); if (voiceOn) speak('Bingo voice on.'); });
+  $('soundBtn').addEventListener('click', () => { soundOn = !soundOn; updateVoiceButtons(); saveSettings(); if (soundOn) playSound('daub'); });
+  $('pointsBtn').addEventListener('click', showWallet);
+  $('toolsBtn').addEventListener('click', showTools);
+  $('statsBtn').addEventListener('click', showStats);
+  $('wordBtn').addEventListener('click', showWordNight);
+  $('tournamentBtn').addEventListener('click', showTournament);
+  $('leagueBtn').addEventListener('click', showLeague);
+  $('peekBtn').addEventListener('click', () => {
+    if (isRoom() && !roomPowerups) { toast('Power-ups are off in this room.'); return; }
+    if (!walletSpend(10, 'Peek')) return;
+    myCards.forEach(card => card.forEach((cell, i) => { if (!cell.blank && !cell.free && !cell.daubed && calledSet.has(cell.n)) { const el = grid.children[i]; if (el && card === cells) el.classList.add('called'); } }));
+    peekActive = true;
+    updateSoloControls();
+    toast('Peek: called squares highlighted');
+    setTimeout(() => { peekActive = false; updateSoloControls(); grid.querySelectorAll('.called').forEach(el => el.classList.remove('called')); }, 2200);
+  });
+  $('shieldBtn').addEventListener('click', () => {
+    if (isRoom() && !roomPowerups) { toast('Power-ups are off in this room.'); return; }
+    if (shieldCount >= 3) { toast('Shield is already full.'); return; }
+    if (!walletSpend(15, 'Shield')) return;
+    shieldCount++;
+    updateSoloControls();
+    toast('Shield ready — one uncalled tap is forgiven');
+  });
+  $('projectorBtn').addEventListener('click', openProjector);
+  $('projectorLobbyBtn').addEventListener('click', openProjector);
+  $('projectorClose').addEventListener('click', closeProjector);
+  $('printBtn').addEventListener('click', () => printCards());
+  $('printLobbyBtn').addEventListener('click', () => printCards());
+  $('prizeBtn').addEventListener('click', showPrize);
+  $('prizeLobbyBtn').addEventListener('click', showPrize);
+  $('leaderboardBtn').addEventListener('click', showLeaderboard);
+  document.querySelectorAll('[data-preset]').forEach(btn => btn.addEventListener('click', () => sendPresetMessage(btn.dataset.preset)));
+  $('sheetClose').addEventListener('click', closeSheet);
+  sheetModal.addEventListener('click', e => { if (e.target === sheetModal) closeSheet(); });
+  $('cardTypeSel').addEventListener('change', () => {
+    const words = $('cardTypeSel').value === 'words';
+    $('wordsField').hidden = !words;
+    if (words && !$('wordsInput').value) $('wordsInput').value = DEFAULT_WORDS.join(', ');
+  });
+  $('lobbyCards').addEventListener('change', e => { if (mode !== 'host') return; roomCards = Number(e.target.value) === 2 ? 2 : 1; broadcastLobby(); renderLobby(); });
+  $('lobbyTeams').addEventListener('change', e => { if (mode !== 'host') return; roomTeams = Number(e.target.value) || 0; assignTeams(); broadcastLobby(); renderLobby(); });
+  $('lobbyChat').addEventListener('change', e => { if (mode !== 'host') return; roomChatMode = e.target.value || 'free'; updateChatUi(); broadcastLobby(); renderLobby(); });
+  $('lobbyAuto').addEventListener('change', e => { if (mode !== 'host') return; roomAuto = e.target.checked; broadcastLobby(); });
+  $('lobbyPowerups').addEventListener('change', e => { if (mode !== 'host') return; roomPowerups = e.target.checked; updateModeUi(); broadcastLobby(); });
+
   $('lobbyPattern').addEventListener('change', e => {
     if (mode !== 'host') return;
     roomPattern = e.target.value in PATTERNS ? e.target.value : 'line';
@@ -1729,6 +2958,14 @@
     $('joinName').value = savedName;
   }
 
+  populatePatterns();
+  $('soloPattern').value = soloPattern in PATTERNS ? soloPattern : 'line';
+  $('formatSel').value = soloFormat;
+  $('soloCards').value = String(soloCardCount);
+  $('soloAuto').checked = soloAuto;
+  updateVoiceButtons();
+  updateWalletUI();
+  updateRuleHint();
   soloReset();
   updateModeUi();
   showOverlay('🎱', 'Bingo night', 'A new ball drops every 1.2 seconds. Tap the numbers on your card to daub them — the first full row, column or diagonal wins.', '▶ Start calling', soloStart, {label: '🌐 Play with friends', action: () => openRoomModal('create')});

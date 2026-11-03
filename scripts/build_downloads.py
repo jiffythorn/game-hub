@@ -24,6 +24,7 @@ EXCLUDE_FILES = {".DS_Store"}
 
 
 CSS_LINK = re.compile(r'<link rel="stylesheet" href="\.\./([^"]+\.css)"\s*/?>')
+JS_LINK = re.compile(r'<script src="\.\./([^"]+\.js)"></script>')
 
 
 def inline_css(html: str, css: dict[str, str]) -> str:
@@ -39,6 +40,15 @@ def inline_css(html: str, css: dict[str, str]) -> str:
     return CSS_LINK.sub(replace, html)
 
 
+def inline_js(html: str, js: dict[str, str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name not in js:
+            raise RuntimeError(f"javascript {name} was not loaded")
+        return f"<script>\n{js[name]}\n</script>"
+    return JS_LINK.sub(replace, html)
+
+
 def make_standalone(html: str, name: str) -> str:
     html = html.replace('href="../index.html#games"', 'href="#"')
     html = html.replace('href="../index.html#download"', 'href="#"')
@@ -47,6 +57,12 @@ def make_standalone(html: str, name: str) -> str:
         rf'<a class="btn btn-green btn-sm" href="\.\./downloads/{name}\.zip" download>⬇ Download</a>',
         "",
         html,
+    )
+    html = re.sub(
+        r'\s*<a class="bingo-switch" href="[^"]+">.*?</a>',
+        "",
+        html,
+        flags=re.S,
     )
     html = html.replace("— Game Hub", "— Game Hub (offline copy)")
     return html
@@ -80,6 +96,7 @@ def build_site_zip() -> None:
 
 def build_game_zips() -> None:
     css = {"style.css": (ROOT / "style.css").read_text(encoding="utf-8")}
+    js: dict[str, str] = {}
     for page in sorted((ROOT / "games").glob("*.html")):
         name = page.stem
         html = page.read_text(encoding="utf-8")
@@ -88,7 +105,13 @@ def build_game_zips() -> None:
             if not path.is_file():
                 raise RuntimeError(f"{page.name} links missing stylesheet {sheet}")
             css.setdefault(sheet, path.read_text(encoding="utf-8"))
+        for script in JS_LINK.findall(html):
+            path = ROOT / script
+            if not path.is_file():
+                raise RuntimeError(f"{page.name} links missing javascript {script}")
+            js.setdefault(script, path.read_text(encoding="utf-8"))
         html = make_standalone(inline_css(html, css), name)
+        html = inline_js(html, js)
         write_zip(OUT / f"{name}.zip", [("index.html", html)])
 
 
