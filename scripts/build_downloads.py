@@ -23,13 +23,20 @@ EXCLUDE_DIRS = {".git", "downloads", ".github", "__pycache__"}
 EXCLUDE_FILES = {".DS_Store"}
 
 
-def inline_css(html: str, css: str) -> str:
-    pattern = re.compile(
-        r'<link rel="stylesheet" href="\.\./style\.css"\s*/?>'
-    )
-    if not pattern.search(html):
-        raise RuntimeError("style.css link not found")
-    return pattern.sub(f"<style>\n{css}\n</style>", html, count=1)
+CSS_LINK = re.compile(r'<link rel="stylesheet" href="\.\./([^"]+\.css)"\s*/?>')
+
+
+def inline_css(html: str, css: dict[str, str]) -> str:
+    if not CSS_LINK.search(html):
+        raise RuntimeError("no ../*.css links found")
+
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name not in css:
+            raise RuntimeError(f"stylesheet {name} was not loaded")
+        return f"<style>\n{css[name]}\n</style>"
+
+    return CSS_LINK.sub(replace, html)
 
 
 def make_standalone(html: str, name: str) -> str:
@@ -72,10 +79,15 @@ def build_site_zip() -> None:
 
 
 def build_game_zips() -> None:
-    css = (ROOT / "style.css").read_text(encoding="utf-8")
+    css = {"style.css": (ROOT / "style.css").read_text(encoding="utf-8")}
     for page in sorted((ROOT / "games").glob("*.html")):
         name = page.stem
         html = page.read_text(encoding="utf-8")
+        for sheet in CSS_LINK.findall(html):
+            path = ROOT / sheet
+            if not path.is_file():
+                raise RuntimeError(f"{page.name} links missing stylesheet {sheet}")
+            css.setdefault(sheet, path.read_text(encoding="utf-8"))
         html = make_standalone(inline_css(html, css), name)
         write_zip(OUT / f"{name}.zip", [("index.html", html)])
 

@@ -46,14 +46,17 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | 📦 **Sokoban** | Arrows / WASD / swipe | 8 hand-built levels, undo, hints, move & push counters |
 | ♠️ **Blackjack** | Click / tap, H / S / D / N | 6-deck shoe, hit/stand/double, 3:2 naturals, saved bankroll |
 | 🎟️ **Bingo** | Click / tap to dab, `B` to claim | 75-ball caller, 5×5 cards with free centre, smart bots, **multiplayer rooms with invite links** |
+| 🎱 **Bingo 2** | Click / tap to dab | Second table: host picks line / four corners / blackout, 0–3 smart bots, 5-character room codes, lobby and in-game chat |
 | 🐛 **Centipede** | Arrows / A D / drag | Mushroom field, segmented bug, auto-fire, waves, 3 lives |
 
 ## Play offline
 
 Every game is a single static page — there is no server and no build step.
 
-> Bingo's solo mode (you against bots) works offline. Its multiplayer rooms
-> need an internet connection, because players connect to each other directly.
+> Bingo and Bingo 2 work offline against bots. Their multiplayer rooms need
+> an internet connection, because players connect to each other directly.
+> The two tables keep separate saved names and rooms; Bingo 2 also tracks
+> its own best score.
 
 **Option 1 — grab the whole site**
 

@@ -254,6 +254,7 @@ a { color: inherit; text-decoration: none; }
 .t12 { background: linear-gradient(135deg, #0e2f2a, #7ee787); }
 .t13 { background: linear-gradient(135deg, #172a5e, #3667e8); }
 .t14 { background: linear-gradient(135deg, #3a1230, #c2410c); }
+.t15 { background: linear-gradient(135deg, #241040, #7c3aed); }
 
 .card .body { padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .card .body h3 { margin: 0; font-size: 19px; letter-spacing: -.3px; }
