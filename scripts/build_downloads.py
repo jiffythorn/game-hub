@@ -19,8 +19,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "downloads"
 
 SITE_ZIP = "game-hub-offline.zip"
-EXCLUDE_DIRS = {".git", "downloads", ".github", "__pycache__"}
-EXCLUDE_FILES = {".DS_Store"}
+EXCLUDE_DIRS = {".git", "downloads", ".github", "__pycache__", "artifacts", "scripts"}
+EXCLUDE_FILES = {".DS_Store", ".gitignore", "PLAN.md"}
 
 
 CSS_LINK = re.compile(r'<link rel="stylesheet" href="\.\./([^"]+\.css)"\s*/?>')
@@ -54,6 +54,16 @@ def make_standalone(html: str, name: str) -> str:
     html = html.replace('href="../index.html#download"', 'href="#"')
     html = html.replace('href="../index.html"', 'href="#"')
     html = re.sub(
+        r'\s*<a class="link hide-sm" href="\.\./chat\.html">.*?</a>',
+        "",
+        html,
+    )
+    html = re.sub(
+        r'\s*<a class="link hide-sm" href="#">Download</a>',
+        "",
+        html,
+    )
+    html = re.sub(
         rf'<a class="btn btn-green btn-sm" href="\.\./downloads/{name}\.zip" download>⬇ Download</a>',
         "",
         html,
@@ -65,6 +75,39 @@ def make_standalone(html: str, name: str) -> str:
         flags=re.S,
     )
     html = html.replace("— Game Hub", "— Game Hub (offline copy)")
+    return html
+
+
+def make_offline_site(html: str) -> str:
+    html = re.sub(
+        r'\s*<a class="link hide-sm" href="#download">.*?</a>',
+        "",
+        html,
+    )
+    html = re.sub(
+        r'\s*<a class="btn btn-green" href="downloads/game-hub-offline\.zip"[^>]*>.*?</a>',
+        "",
+        html,
+        flags=re.S,
+    )
+    html = re.sub(
+        r'\s*<a class="btn btn-ghost btn-sm" href="downloads/[^"]+\.zip"[^>]*>.*?</a>',
+        "",
+        html,
+        flags=re.S,
+    )
+    html = html.replace(
+        "Hit play and you're gaming in under a second — or download the whole pack and play with zero internet, forever.",
+        "Hit play and you're gaming in under a second — this copy is ready with zero internet.",
+    )
+    html = html.replace(
+        "<h3>⬇ Grab the whole arcade</h3>",
+        "<h3>✓ This copy is already offline</h3>",
+    )
+    html = html.replace(
+        "Download the complete site as a ZIP, unzip it, and double-click <code>index.html</code>. Every game works with no internet connection — ideal for planes, offline machines, or just keeping forever.",
+        "This copy is already on your machine. Double-click <code>index.html</code> whenever you want to play — no internet connection required.",
+    )
     return html
 
 
@@ -87,9 +130,12 @@ def build_site_zip() -> None:
         if p.is_dir():
             continue
         rel = p.relative_to(ROOT)
-        if rel.parts[0] in EXCLUDE_DIRS or p.name in EXCLUDE_FILES:
+        if any(part in EXCLUDE_DIRS for part in rel.parts) or p.name in EXCLUDE_FILES:
             continue
-        entries.append((f"game-hub/{rel.as_posix()}", p))
+        source: Path | str = p
+        if rel.as_posix() == "index.html":
+            source = make_offline_site(p.read_text(encoding="utf-8"))
+        entries.append((f"game-hub/{rel.as_posix()}", source))
     entries.sort(key=lambda e: e[0])
     write_zip(OUT / SITE_ZIP, entries)
 
