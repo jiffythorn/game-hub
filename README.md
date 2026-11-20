@@ -139,8 +139,9 @@ through Game Hub itself.
 
 ## Operator tools (local only)
 
-[`tools/mint.html`](tools/mint.html) signs Bingo 2 point grants. Open the file
-directly — it has no dependencies and makes no network calls.
+The local `tools/mint.html` signs Bingo 2 point grants. Open the file
+directly — it has no dependencies and makes no network calls. It is ignored by
+git and is not published with the site.
 
 - **Keys:** ECDSA P-256 via Web Crypto. Create a key in the page, export it as
   JSON for backup, import it elsewhere, or delete it. The public JWK and a

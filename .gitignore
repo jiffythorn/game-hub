@@ -2,3 +2,6 @@
 Thumbs.db
 __pycache__/
 *.pyc
+
+# Local-only operator tools (point mint signer); never publish.
+tools/
