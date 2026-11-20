@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sokoban — Game Hub</title>
-<meta name="description" content="Play Sokoban free online. Push every crate onto a target across eight hand-built levels, with undo, move and push counters, and a hint system. Download to play offline.">
+<title>Crate Pusher — Game Hub</title>
+<meta name="description" content="Play Crate Pusher free online. Push every crate onto a target across eight original hand-built levels, with undo, move and push counters, and a hint system. Download to play offline.">
 <meta name="theme-color" content="#0a0d14">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
 <link rel="stylesheet" href="../style.css">
@@ -24,11 +24,11 @@
   <div class="game-head">
     <div class="big">📦</div>
     <div class="grow">
-      <h1>Sokoban</h1>
-      <p>Push every crate onto a target. You can only push, never pull — so plan each shove, use undo when a crate gets stuck, or ask for a hint.</p>
+      <h1>Crate Pusher</h1>
+      <p>Push every crate onto a target. You can only push, never pull — so plan each shove, use undo when a crate gets stuck, or ask for a hint. All eight layouts are original designs made for this page.</p>
     </div>
     <div class="acts">
-      <a class="btn btn-green btn-sm" href="../downloads/sokoban.zip" download>⬇ Download</a>
+      <a class="btn btn-green btn-sm" href="../downloads/crate-pusher.zip" download>⬇ Download</a>
       <button class="btn btn-ghost btn-sm" id="hintBtn">💡 Hint</button>
       <button class="btn btn-ghost btn-sm" id="undoBtn">↶ Undo</button>
       <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
@@ -48,7 +48,7 @@
 
   <div class="stage">
     <div class="board-wrap">
-      <div class="sok-board" id="board" aria-label="Sokoban board"></div>
+      <div class="crate-board" id="board" aria-label="Crate Pusher board"></div>
     </div>
     <div class="overlay show" id="overlay">
       <div class="ov-ico" id="ovIco">📦</div>
@@ -172,7 +172,7 @@
   let overlayAction = () => {};
 
   try {
-    best = JSON.parse(localStorage.getItem('gh.sokoban.best') || '{}') || {};
+    best = JSON.parse(localStorage.getItem('gh.cratepusher.best') || '{}') || {};
   } catch (err) {
     best = {};
   }
@@ -180,7 +180,7 @@
   const key = (r, c) => r + ',' + c;
 
   function saveBest() {
-    localStorage.setItem('gh.sokoban.best', JSON.stringify(best));
+    localStorage.setItem('gh.cratepusher.best', JSON.stringify(best));
   }
 
   function parse(grid) {
@@ -219,24 +219,24 @@
       for (let c = 0; c < cols; c++) {
         const k = key(r, c);
         const cell = document.createElement('div');
-        cell.className = 'sok-cell';
+        cell.className = 'crate-cell';
 
         if (walls.has(k)) {
           cell.classList.add('wall');
         } else {
           if (goals.has(k)) {
             const goal = document.createElement('span');
-            goal.className = 'sok-goal';
+            goal.className = 'crate-goal';
             cell.appendChild(goal);
           }
           if (boxKeys.has(k)) {
             const box = document.createElement('span');
-            box.className = 'sok-box' + (goals.has(k) ? ' on' : '');
+            box.className = 'crate-box' + (goals.has(k) ? ' on' : '');
             cell.appendChild(box);
           }
           if (player.r === r && player.c === c) {
             const hero = document.createElement('span');
-            hero.className = 'sok-player';
+            hero.className = 'crate-player';
             cell.appendChild(hero);
           }
         }
@@ -294,7 +294,7 @@
     boardEl.style.setProperty('--cols', cols);
     boardEl.style.setProperty('--rows', rows);
     boardEl.style.aspectRatio = cols + ' / ' + rows;
-    localStorage.setItem('gh.sokoban.level', levelIndex);
+    localStorage.setItem('gh.cratepusher.level', levelIndex);
     render();
     updateHud();
   }
@@ -702,7 +702,7 @@
     step(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
   }, {passive: true});
 
-  const saved = +(localStorage.getItem('gh.sokoban.level') || 0);
+  const saved = +(localStorage.getItem('gh.cratepusher.level') || 0);
   loadLevel(Number.isFinite(saved) ? saved : 0);
   ask('📦', 'Ready?', 'Move with the arrow keys, WASD or swipe. Walk into a crate to push it onto a glowing target. You cannot pull crates back.', '▶ Start game', () => {});
 })();

@@ -34,8 +34,8 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | Game | Controls | Features |
 |------|----------|----------|
 | 🐍 **Snake** | Arrows / WASD / swipe | Ramp-up speed, high score |
-| 🧱 **Breakout** | Mouse / touch / arrows | 3 lives, escalating levels, narrowing paddle |
-| 🏓 **Pong vs AI** | W/S, ↑↓, mouse, touch | First to 7, adaptive AI, win streaks |
+| 🧱 **Brick Breaker** | Mouse / touch / arrows | 3 lives, escalating levels, narrowing paddle |
+| 🏓 **Paddle Duel** | W/S, ↑↓, mouse, touch | First to 7, adaptive AI, win streaks |
 | 🐦 **Flappy** | Space / click / tap | Endless pipes, high score |
 | 🃏 **Memory Match** | Click / tap | 4×4, 6×6, 8×8 grids, timer, best time |
 | 💣 **Minesweeper** | Click to reveal, right-click / flag mode to flag | 3 levels, first click always safe |
@@ -43,7 +43,7 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | 🟪 **Block Drop** | Arrows / WASD, Space hard drop | 7-bag pieces, ghost preview, 10 lines per level |
 | 👾 **Star Swarm** | ← → / A D, Space to fire | Waves, 3 lives, destructible bunkers, best score |
 | 🔴 **Four in a Row** | Click / tap a column | 7×6 board, 3 AI levels, 2-player mode |
-| 📦 **Sokoban** | Arrows / WASD / swipe | 8 hand-built levels, undo, hints, move & push counters |
+| 📦 **Crate Pusher** | Arrows / WASD / swipe | 8 original levels, undo, hints, move & push counters |
 | ♠️ **Blackjack** | Click / tap, H / S / D / N | 6-deck shoe, hit/stand/double, 3:2 naturals, saved bankroll |
 | 🎟️ **Bingo** | Click / tap to dab, `B` to claim | 75-ball caller, 5×5 cards with free centre, smart bots, **multiplayer rooms with invite links** |
 | 🎱 **Bingo 2** | Click / tap to dab, card tabs for extra cards | Second table: solo players and hosts pick any line, four corners, X, T, H, climbing ladder, bullseye or blackout plus a pattern of the day with a daily streak, 0–3 smart bots, 5-character room codes, lobby and in-game chat, **points with a card cost, a shared pot and a room jackpot**, a saved balance plus separate solo and room standings (gross, net and return on card costs), a daily streak with a bankable freeze earned from blackouts a seven-day history strip, and a nudge naming today's pattern when a banked freeze is waiting on it (snoozable until tomorrow) (carried in the restore code, with a warning when the carried run has already lapsed), restore codes and signed gift codes |
@@ -59,6 +59,11 @@ every message is a real GitHub Discussion you can moderate from the repo.
 > thorn shards, canvas art, synthesised sounds and wording were made for Game Hub. The
 > fixed-shooter mechanics (a segmented enemy, breakable obstacles, ricocheting hazards)
 > are not copyrightable; every piece of expression here is our own.
+>
+> **Paddle Duel, Brick Breaker and Crate Pusher are original presentations.** Their
+> names, wording and level layouts were made for Game Hub. Paddle rallies, brick
+> smashing and crate pushing are unprotected mechanics; Crate Pusher's eight maps are
+> our own designs, not reproductions of another game's levels.
 
 ## Play offline
 
@@ -175,8 +180,8 @@ game-hub/
 ├── style.css                  shared theme and layout
 ├── games/
 │   ├── snake.html
-│   ├── breakout.html
-│   ├── pong.html
+│   ├── brick-breaker.html
+│   ├── paddle.html
 │   ├── flappy.html
 │   ├── memory.html
 │   ├── minesweeper.html
@@ -184,7 +189,7 @@ game-hub/
 │   ├── blocks.html
 │   ├── swarm.html
 │   ├── connect4.html
-│   ├── sokoban.html
+│   ├── crate-pusher.html
 │   ├── blackjack.html
 │   ├── bingo.html
 │   ├── chromaclash.html

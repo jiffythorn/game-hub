@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Breakout — Game Hub</title>
-<meta name="description" content="Play Breakout free online. Smash every brick with your paddle and ball across escalating levels. Download to play offline.">
+<title>Brick Breaker — Game Hub</title>
+<meta name="description" content="Play Brick Breaker free online. Smash every brick with your paddle and ball across escalating levels. Keyboard, mouse or touch. Download to play offline.">
 <meta name="theme-color" content="#0a0d14">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧱</text></svg>">
 <link rel="stylesheet" href="../style.css">
@@ -24,11 +24,11 @@
   <div class="game-head">
     <div class="big">🧱</div>
     <div class="grow">
-      <h1>Breakout</h1>
+      <h1>Brick Breaker</h1>
       <p>Clear every brick before you lose your three lives. Each level adds rows and speed — the paddle narrows the further you get.</p>
     </div>
     <div class="acts">
-      <a class="btn btn-green btn-sm" href="../downloads/breakout.zip" download>⬇ Download</a>
+      <a class="btn btn-green btn-sm" href="../downloads/brick-breaker.zip" download>⬇ Download</a>
       <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
       <button class="btn btn-ghost btn-sm" id="pauseBtn">⏸ Pause</button>
     </div>
@@ -70,7 +70,7 @@
 
   let paddle, ball, bricks, score, best, lives, level, alive, paused, started, launched, betweenLevels, raf, brickCount, serveAt;
 
-  best = +(localStorage.getItem('gh.breakout.best') || 0);
+  best = +(localStorage.getItem('gh.brickbreaker.best') || 0);
   $('best').textContent = best;
 
   function reset() {
@@ -149,7 +149,7 @@
           b.hp--;
           if (b.hp <= 0) { b.alive = false; brickCount--; score += 10 * level; }
           else score += 5;
-          if (score > best) { best = score; localStorage.setItem('gh.breakout.best', best); }
+          if (score > best) { best = score; localStorage.setItem('gh.brickbreaker.best', best); }
           updateHud();
           if (brickCount === 0) return nextLevel();
           break;

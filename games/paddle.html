@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pong vs AI — Game Hub</title>
-<meta name="description" content="Play Pong against the AI free online. First to 7 points wins. Download to play offline.">
+<title>Paddle Duel — Game Hub</title>
+<meta name="description" content="Play Paddle Duel free online. A neon-table paddle rally — first to 7 points against an AI that sharpens as the match goes on. Keyboard, mouse or touch. Download to play offline.">
 <meta name="theme-color" content="#0a0d14">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏓</text></svg>">
 <link rel="stylesheet" href="../style.css">
@@ -24,11 +24,11 @@
   <div class="game-head">
     <div class="big">🏓</div>
     <div class="grow">
-      <h1>Pong vs AI</h1>
-      <p>The 1972 arcade original, reborn in your browser. You're on the left — first player to 7 points takes the match. The AI reads your angles.</p>
+      <h1>Paddle Duel</h1>
+      <p>A neon-table paddle rally in your browser. You're on the left — first player to 7 points takes the match. The AI reads your angles and gets sharper as the score climbs.</p>
     </div>
     <div class="acts">
-      <a class="btn btn-green btn-sm" href="../downloads/pong.zip" download>⬇ Download</a>
+      <a class="btn btn-green btn-sm" href="../downloads/paddle.zip" download>⬇ Download</a>
       <button class="btn btn-ghost btn-sm" id="restartBtn">↻ Restart</button>
       <button class="btn btn-ghost btn-sm" id="pauseBtn">⏸ Pause</button>
     </div>
@@ -68,7 +68,7 @@
   const WIN = 7, PH = 88, PW = 13;
   let you, ai, ball, pScore, aiScore, rally, alive, paused, started, streak, bestStreak, keys = {}, raf, serveTimer;
 
-  bestStreak = +(localStorage.getItem('gh.pong.streak') || 0);
+  bestStreak = +(localStorage.getItem('gh.paddle.streak') || 0);
   $('streak').textContent = bestStreak;
 
   function reset() {
@@ -165,7 +165,7 @@
     clearTimeout(serveTimer);
     if (won) {
       streak++;
-      if (streak > bestStreak) { bestStreak = streak; localStorage.setItem('gh.pong.streak', bestStreak); }
+      if (streak > bestStreak) { bestStreak = streak; localStorage.setItem('gh.paddle.streak', bestStreak); }
     } else streak = 0;
     updateHud();
     ovIco.textContent = won ? '🏆' : '😵';
