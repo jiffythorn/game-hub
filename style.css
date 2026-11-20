@@ -486,7 +486,7 @@ kbd {
   color: var(--text);
 }
 
-/* ---------- memory / minesweeper ---------- */
+/* ---------- memory / minefield ---------- */
 .board-wrap {
   width: 100%;
   padding: clamp(12px, 3vw, 22px);

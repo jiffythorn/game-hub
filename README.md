@@ -38,7 +38,7 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | 🏓 **Paddle Duel** | W/S, ↑↓, mouse, touch | First to 7, adaptive AI, win streaks |
 | 🐦 **Flappy** | Space / click / tap | Endless pipes, high score |
 | 🃏 **Memory Match** | Click / tap | 4×4, 6×6, 8×8 grids, timer, best time |
-| 💣 **Minesweeper** | Click to reveal, right-click / flag mode to flag | 3 levels, first click always safe |
+| 💣 **Minefield** | Click to reveal, right-click / flag mode to flag | 3 levels, first click always safe |
 | 🔢 **2048 Merge** | Arrows / WASD / swipe | 4×4 sliding puzzle, undo, best score and top tile |
 | 🟪 **Block Drop** | Arrows / WASD, Space hard drop | 7-bag pieces, ghost preview, 10 lines per level |
 | 👾 **Star Swarm** | ← → / A D, Space to fire | Waves, 3 lives, destructible bunkers, best score |
@@ -184,11 +184,11 @@ game-hub/
 │   ├── paddle.html
 │   ├── flappy.html
 │   ├── memory.html
-│   ├── minesweeper.html
+│   ├── minefield.html
 │   ├── 2048.html
 │   ├── blocks.html
 │   ├── swarm.html
-│   ├── connect4.html
+│   ├── four-in-a-row.html
 │   ├── crate-pusher.html
 │   ├── blackjack.html
 │   ├── bingo.html

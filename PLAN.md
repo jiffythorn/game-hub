@@ -264,7 +264,7 @@ pot is only play money and nothing is purchasable (see doc §5).
 
 Follow-up on the report that Four in a Row was blending into the background and
 that mobile sizing was unfinished. (The earlier commit `188a790` had already
-capped canvases/boards to the phone viewport for other games; connect4 was left
+capped canvases/boards to the phone viewport for other games; Four in a Row was left
 untouched then.)
 
 ### Four in a Row (`style.css`, `.c4-*`)
@@ -285,7 +285,7 @@ untouched then.)
 Measured contrast against the stage (1.0 = identical): board top 1.32 → 2.28,
 board bottom 1.09 → 1.26 (plus the purple edge), hole vs frame 1.09 → 1.27.
 
-### Minesweeper (`style.css`, `.mine-grid` / `.cell`)
+### Minefield (`style.css`, `.mine-grid` / `.cell`)
 
 - The grid had **no frame at all**: tiles floated on the near-black `.stage`
   and opened cells were `#0b0f18` — a 1.05 ratio against the background, so
