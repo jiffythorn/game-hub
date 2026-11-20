@@ -255,6 +255,7 @@ a { color: inherit; text-decoration: none; }
 .t13 { background: linear-gradient(135deg, #172a5e, #3667e8); }
 .t14 { background: linear-gradient(135deg, #3a1230, #c2410c); }
 .t15 { background: linear-gradient(135deg, #241040, #7c3aed); }
+.t16 { background: linear-gradient(120deg, #ff5b44, #ffc93c 34%, #2bc77c 63%, #33a6f0); }
 
 .card .body { padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .card .body h3 { margin: 0; font-size: 19px; letter-spacing: -.3px; }
@@ -1309,10 +1310,38 @@ kbd {
 .ov-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 2px; }
 .ov-note { min-height: 1.2em; margin: 0; color: var(--pink); font-size: 12.5px; }
 
-.page-centipede .stage {
+.page-thornlight .stage {
   width: min(100%, 640px);
   margin: 0 auto;
+  background:
+    radial-gradient(120% 80% at 78% 0%, rgba(255, 190, 96, .16), transparent 55%),
+    radial-gradient(100% 90% at 50% 115%, rgba(34, 227, 163, .12), transparent 60%),
+    linear-gradient(160deg, #08201b, #04100d);
+  border-color: #2c4a3f;
 }
+
+.tl-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.tl-note {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.tl-note b {
+  display: block;
+  font-size: 13.5px;
+  margin-bottom: 4px;
+  color: #ffe0a3;
+}
+
+.tl-note span { color: var(--muted); font-size: 12.5px; line-height: 1.55; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 640px) {
@@ -1468,3 +1497,51 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- terms / points notice ---------- */
+.legal {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 clamp(4px, 2vw, 16px);
+}
+.legal h2 {
+  margin: 30px 0 10px;
+  font-size: 19px;
+  letter-spacing: -.01em;
+}
+.legal p,
+.legal li {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+.legal p { margin: 0 0 12px; }
+.legal ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  display: grid;
+  gap: 7px;
+}
+.legal li::marker { color: #a78bfa; }
+.legal b { color: #e9edf7; }
+.legal a { color: #c4b5fd; }
+.legal .updated {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+.notice {
+  margin: 18px 0 24px;
+  padding: 16px 18px;
+  border: 1px solid rgba(250, 204, 21, .45);
+  border-radius: 14px;
+  background: rgba(250, 204, 21, .08);
+}
+.notice h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #fde68a;
+}
+.notice p { color: #f8fafc; margin: 0 0 10px; }
+.notice ul { margin: 0; padding-left: 18px; }
+.notice b { color: #fff7d6; }

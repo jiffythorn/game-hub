@@ -46,8 +46,19 @@ every message is a real GitHub Discussion you can moderate from the repo.
 | 📦 **Sokoban** | Arrows / WASD / swipe | 8 hand-built levels, undo, hints, move & push counters |
 | ♠️ **Blackjack** | Click / tap, H / S / D / N | 6-deck shoe, hit/stand/double, 3:2 naturals, saved bankroll |
 | 🎟️ **Bingo** | Click / tap to dab, `B` to claim | 75-ball caller, 5×5 cards with free centre, smart bots, **multiplayer rooms with invite links** |
-| 🎱 **Bingo 2** | Click / tap to dab | Second table: host picks line / four corners / blackout, 0–3 smart bots, 5-character room codes, lobby and in-game chat |
-| 🐛 **Centipede** | Arrows / A D / drag | Mushroom field, segmented bug, auto-fire, waves, 3 lives |
+| 🎱 **Bingo 2** | Click / tap to dab, card tabs for extra cards | Second table: solo players and hosts pick any line, four corners, X, T, H, climbing ladder, bullseye or blackout plus a pattern of the day with a daily streak, 0–3 smart bots, 5-character room codes, lobby and in-game chat, **points with a card cost, a shared pot and a room jackpot**, a saved balance plus separate solo and room standings (gross, net and return on card costs), a daily streak with a bankable freeze earned from blackouts a seven-day history strip, and a nudge naming today's pattern when a banked freeze is waiting on it (snoozable until tomorrow) (carried in the restore code, with a warning when the carried run has already lapsed), restore codes and signed gift codes |
+| 🪲 **Thornlight** | Arrows / A D / drag | An original night-garden bug shooter: segmented thornworms that split when shot, bouncing thorn shards, breakable bloom pods, auto-fire, 3 lanterns and escalating waves |
+| 🎴 **Chromaclash** | Click / tap a card, click the well to draw | An original hue-matching card game: 112 cards in four hues with shape marks, Jam, Loop, Toll, Swap, Prism and Prism Toll, SOLO last-card calls with a catch window, 1–3 smart bots, **private rooms with host-created 5-character codes and invite links**, lobby and in-game chat, bot takeover if a guest drops |
+
+> **Chromaclash is an original game.** Its name, card faces, hue names, action names and
+> rules text were made for Game Hub — no other card game's branding, wording or art is
+> used. The underlying mechanics (matching, skipping, reversing, drawing) are not
+> copyrightable; the expression here is our own.
+>
+> **Thornlight is an original game.** Its name, lantern beetle, thornworms, bloom pods,
+> thorn shards, canvas art, synthesised sounds and wording were made for Game Hub. The
+> fixed-shooter mechanics (a segmented enemy, breakable obstacles, ricocheting hazards)
+> are not copyrightable; every piece of expression here is our own.
 
 ## Play offline
 
@@ -121,6 +132,32 @@ closes the tab, guests are told the room is gone.
 Only the host's connection to the signalling server is required; no messages go
 through Game Hub itself.
 
+## Operator tools (local only)
+
+[`tools/mint.html`](tools/mint.html) signs Bingo 2 point grants. Open the file
+directly — it has no dependencies and makes no network calls.
+
+- **Keys:** ECDSA P-256 via Web Crypto. Create a key in the page, export it as
+  JSON for backup, import it elsewhere, or delete it. The public JWK and a
+  SHA-256 fingerprint are shown so a verifier can be pinned to it.
+- **Grants:** `GH2G.1.<role>.<payload>.<sig>`, where the payload is base64url
+  JSON `{c,r,e,i,n}` (points, role, expiry, issued, nonce) and the signature
+  covers the first four dot-separated parts.
+- **Caps:** promo 1,000 · operator 10,000 · prize 25,000 points per grant.
+  Expiry runs from 1 hour to 90 days; a batch is up to 25 codes.
+- **Pairing:** copy the game snippet the page shows and paste it over
+  `const GRANT_KEY = null;` in `games/bingo-2.html`. Only that public key is
+  trusted; the private key never leaves the tool.
+- **Output:** a copyable code, a `…bingo-2.html?gift=<code>` link, CSV with
+  `code,role,points,issued,expires,gift_link`, and a built-in verifier for
+  pasted codes (it flags tampering, over-cap amounts and expiry).
+- **Never deploy it.** The page is `noindex`, and
+  `scripts/build_downloads.py` keeps `tools/` out of every ZIP. Anyone holding
+  the private key can mint points, so keep it as private as a key.
+
+Bingo 2 does not consume grants yet — the redeem/claim path is the next step,
+so treat today's output as codes waiting for a verifier.
+
 ## Deploy
 
 GitHub Pages is configured to serve from the `main` branch, root folder.
@@ -132,6 +169,8 @@ Push to `main` and the site updates automatically.
 game-hub/
 ├── index.html                 home page + game grid
 ├── chat.html                  guestbook (giscus)
+├── terms.html                 terms + points notice
+├── tools/mint.html            local-only point grant signer (never shipped)
 ├── giscus-theme.css           custom giscus theme
 ├── style.css                  shared theme and layout
 ├── games/
@@ -148,7 +187,8 @@ game-hub/
 │   ├── sokoban.html
 │   ├── blackjack.html
 │   ├── bingo.html
-│   └── centipede.html
+│   ├── chromaclash.html
+│   └── thornlight.html
 ├── downloads/                 generated ZIPs (do not edit by hand)
 ├── scripts/build_downloads.py rebuilds downloads/
 ├── LICENSE

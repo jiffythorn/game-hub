@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thornlight — Game Hub</title>
+<meta name="description" content="Thornlight is an original night-garden bug shooter. Split crawling thornworms with pollen darts, dodge the bouncing thorn shards, clear the bloom pods and hold the lantern line wave after wave. Keyboard, mouse and touch.">
+<meta name="theme-color" content="#07130f">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="../index.html"><span class="logo">🎮</span> Game Hub</a>
+  <div class="spacer"></div>
+  <a class="link hide-sm" href="../index.html#games">All games</a>
+  <a class="link hide-sm" href="../index.html#download">Download</a>
+  <a class="link hide-sm" href="../chat.html">💬 Guestbook</a>
+  <a class="btn btn-primary btn-sm" href="../index.html#games">← Arcade</a>
+</header>
+
+<main class="game-page page-thornlight">
+  <div class="game-head">
+    <div class="big">🌙</div>
+    <div class="grow">
+      <h1>Thornlight</h1>
+      <p>An original night-garden bug shooter. The thornworm splits where you shoot it, its severed thorns bounce wild, and the bloom pods are all that stand between it and the lantern line.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-green btn-sm" href="../downloads/thornlight.zip" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" id="restartBtn" type="button">↻ Restart</button>
+      <button class="btn btn-ghost btn-sm" id="pauseBtn" type="button">⏸ Pause</button>
+      <button class="btn btn-ghost btn-sm" id="muteBtn" type="button" aria-pressed="false">🔊 Sound</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="chip on">Score <b id="score">0</b></div>
+    <div class="chip">Best <b id="best">0</b></div>
+    <div class="chip">Lanterns <b id="lives">🪲🪲🪲</b></div>
+    <div class="chip">Wave <b id="wave">1</b></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="board" width="480" height="560" aria-label="Thornlight game field"></canvas>
+    <div class="overlay show" id="overlay">
+      <div class="ov-ico" id="ovIco">🌙</div>
+      <h2 id="ovTitle">The garden at midnight</h2>
+      <p id="ovText">Steer the lantern beetle with ← → or A/D, or drag on touch. Pollen darts fire on their own. Split the thornworm, keep clear of the bouncing thorns, and never let a worm reach the lantern line.</p>
+      <button class="btn btn-primary" id="startBtn">▶ Light the lantern</button>
+    </div>
+  </div>
+
+  <div class="controls-hint">
+    <span><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> move</span>
+    <span>Auto-fire</span>
+    <span>Drag to steer on mobile</span>
+    <span><kbd>P</kbd> pause</span>
+    <span><kbd>R</kbd> restart</span>
+    <span><kbd>M</kbd> sound</span>
+  </div>
+
+  <div class="tl-notes">
+    <div class="tl-note"><b>Bloom pods</b><span>Three hits each. Splinter them to open a path — or leave them as cover.</span></div>
+    <div class="tl-note"><b>Thornworms</b><span>Shooting a middle segment splits one worm into two. Every piece crawls on its own.</span></div>
+    <div class="tl-note"><b>Thorn shards</b><span>Severed segments burst into bouncing thorns. Shoot them for points, or dodge.</span></div>
+  </div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const cv = $('board');
+  const ctx = cv.getContext('2d');
+  const overlay = $('overlay'), ovIco = $('ovIco'), ovTitle = $('ovTitle'), ovText = $('ovText');
+  const startBtn = $('startBtn'), pauseBtn = $('pauseBtn'), muteBtn = $('muteBtn');
+
+  const W = cv.width, H = cv.height, CELL = 16;
+  const COLS = W / CELL, ROWS = H / CELL, LANTERN_Y = H - 44;
+  const BEST_KEY = 'gh.thornlight.best';
+  const MUTE_KEY = 'gh.thornlight.muted';
+
+  let player, pods, worms, darts, shards, fireflies;
+  let score, best, lives, wave;
+  let started = false, paused = false, over = false, last = 0;
+  let stepAcc = 0, fireAcc = 0;
+  let banner = '', bannerT = 0, flashT = 0;
+  let overlayAction = () => {};
+  const keys = { left: false, right: false };
+
+  best = +(localStorage.getItem(BEST_KEY) || 0);
+  let muted = localStorage.getItem(MUTE_KEY) === '1';
+
+  /* ---------- sound: tiny original synth, no audio files ---------- */
+  let actx = null;
+
+  function audio() {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) actx = new AC();
+    }
+    if (actx && actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+
+  function tone(freq, dur, type, vol, slideTo, delay = 0) {
+    if (muted) return;
+    const ac = audio();
+    if (!ac) return;
+    const t0 = ac.currentTime + delay;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), t0 + dur);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  function sfx(name) {
+    if (muted) return;
+    if (name === 'shoot') tone(940, 0.05, 'triangle', 0.008, 720);
+    else if (name === 'pod') tone(470, 0.07, 'square', 0.018, 390);
+    else if (name === 'split') {
+      tone(780, 0.08, 'sine', 0.045, 430);
+      tone(520, 0.12, 'triangle', 0.028, 300, 0.03);
+    } else if (name === 'hit') {
+      tone(290, 0.12, 'sawtooth', 0.045, 140);
+      tone(120, 0.2, 'sine', 0.055, 55, 0.02);
+    } else if (name === 'shard') {
+      tone(1040, 0.08, 'square', 0.022, 1520);
+    } else if (name === 'wave') {
+      [523, 659, 784].forEach((f, i) => tone(f, 0.16, 'triangle', 0.04, f, i * 0.07));
+    } else if (name === 'over') {
+      [392, 330, 262, 196].forEach((f, i) => tone(f, 0.3, 'sine', 0.055, f * 0.8, i * 0.12));
+    }
+  }
+
+  function syncMute() {
+    muteBtn.textContent = muted ? '🔇 Muted' : '🔊 Sound';
+    muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  }
+
+  function toggleMute() {
+    muted = !muted;
+    localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
+    syncMute();
+    if (!muted) sfx('pod');
+  }
+
+  /* ---------- helpers ---------- */
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const stepMs = () => Math.max(52, 96 - (wave - 1) * 5);
+
+  function makeFireflies() {
+    fireflies = Array.from({ length: 34 }, () => ({
+      x: Math.random() * W,
+      y: 40 + Math.random() * (H - 80),
+      r: Math.random() * 1.4 + 0.4,
+      phase: Math.random() * Math.PI * 2,
+      drift: 0.4 + Math.random() * 0.8
+    }));
+  }
+
+  function podAt(c, r) {
+    return pods.some(pod => pod.c === c && pod.r === r);
+  }
+
+  function addPod(c, r, hp = 3) {
+    if (c < 0 || c >= COLS || r < 3 || r >= ROWS - 4) return;
+    if (podAt(c, r) || pods.length > 110) return;
+    pods.push({ c, r, hp, phase: Math.random() * Math.PI * 2 });
+  }
+
+  function seedPods(count) {
+    for (let i = 0; i < count; i++) {
+      let tries = 0;
+      while (tries++ < 40) {
+        const c = (Math.random() * COLS) | 0;
+        const r = 4 + ((Math.random() * (ROWS - 10)) | 0);
+        if (!podAt(c, r)) { addPod(c, r, 3); break; }
+      }
+    }
+  }
+
+  function makeWorm(headC, row, size, dir) {
+    const path = [];
+    for (let i = 0; i < size; i++) path.push({ c: clamp(headC - dir * i, 0, COLS - 1), r: row });
+    return { path, dir };
+  }
+
+  function spawnWorms() {
+    worms = [];
+    const count = Math.min(3, 1 + Math.floor((wave - 1) / 3));
+    const baseSize = Math.min(26, 9 + wave * 2);
+    for (let i = 0; i < count; i++) {
+      const row = 2 + i * 2;
+      const dir = i % 2 ? -1 : 1;
+      const headC = clamp(7 + ((wave * 3 + i * 9) % (COLS - 14)), 1, COLS - 2);
+      worms.push(makeWorm(headC, row, Math.max(5, baseSize - i * 2), dir));
+    }
+  }
+
+  function newGame() {
+    score = 0;
+    lives = 3;
+    wave = 1;
+    over = false;
+    paused = false;
+    started = false;
+    player = { x: W / 2, inv: 0 };
+    pods = [];
+    darts = [];
+    shards = [];
+    seedPods(26);
+    makeFireflies();
+    spawnWorms();
+    flashT = 0;
+    banner = 'WAVE 1';
+    bannerT = 1300;
+    updateHud();
+  }
+
+  function updateHud() {
+    if (score > best) {
+      best = score;
+      localStorage.setItem(BEST_KEY, String(best));
+    }
+    $('score').textContent = score;
+    $('best').textContent = best;
+    $('lives').textContent = lives > 0 ? '🪲'.repeat(lives) : '—';
+    $('wave').textContent = wave;
+  }
+
+  function ask(ico, title, text, label, action) {
+    ovIco.textContent = ico;
+    ovTitle.textContent = title;
+    ovText.textContent = text;
+    startBtn.textContent = label;
+    overlayAction = action;
+    overlay.classList.add('show');
+  }
+
+  function play() {
+    if (over) return;
+    overlay.classList.remove('show');
+    started = true;
+    paused = false;
+    pauseBtn.textContent = '⏸ Pause';
+    audio();
+  }
+
+  function restart() {
+    newGame();
+    play();
+  }
+
+  function togglePause() {
+    if (over) return;
+    if (!started) { play(); return; }
+    paused = !paused;
+    pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
+    if (paused) {
+      ask('🌙', 'Paused', 'The garden holds its breath. The thornworm will wait.', '▶ Resume', () => {
+        paused = false;
+        overlay.classList.remove('show');
+        pauseBtn.textContent = '⏸ Pause';
+      });
+    } else {
+      overlay.classList.remove('show');
+    }
+  }
+
+  function gameOver() {
+    over = true;
+    started = false;
+    updateHud();
+    sfx('over');
+    ask('🕯️', 'The lantern goes dark',
+      `The thornworm reached the line on wave ${wave}. Score: ${score}. Best: ${best}.`,
+      '↻ Try again', restart);
+  }
+
+  function wormBreach() {
+    if (over) return;
+    if (player.inv <= 0) {
+      lives -= 1;
+      flashT = 240;
+      sfx('hit');
+      updateHud();
+      if (lives <= 0) { gameOver(); return; }
+    }
+    player.inv = Math.max(player.inv, 1500);
+    banner = 'THE LINE BREAKS!';
+    bannerT = 1100;
+    darts = [];
+    shards = [];
+    spawnWorms();
+  }
+
+  function loseLife() {
+    if (player.inv > 0 || over) return;
+    lives -= 1;
+    flashT = 240;
+    sfx('hit');
+    updateHud();
+    if (lives <= 0) { gameOver(); return; }
+    player.inv = 1800;
+    darts = [];
+    shards = [];
+    banner = 'THE THORNS BITE!';
+    bannerT = 1000;
+    spawnWorms();
+  }
+
+  function fire() {
+    if (darts.length > 8) return;
+    darts.push({ x: player.x, y: LANTERN_Y - 20 });
+    sfx('shoot');
+  }
+
+  function spawnShard(c, r) {
+    if (shards.length >= 7) return;
+    const speed = 0.1 + Math.random() * 0.06;
+    const angle = Math.random() * Math.PI * 2;
+    shards.push({
+      x: c * CELL + CELL / 2,
+      y: r * CELL + CELL / 2,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 9500,
+      spin: Math.random() * Math.PI * 2
+    });
+  }
+
+  function splitWorm(wi, si) {
+    const worm = worms[wi];
+    const cell = worm.path[si];
+    const front = worm.path.slice(0, si);
+    const back = worm.path.slice(si + 1);
+
+    worms.splice(wi, 1);
+    if (front.length) worms.push({ path: front, dir: worm.dir });
+    // The back piece's path already runs from the break toward the tail, so its
+    // new head keeps the worm's heading. Reversing it would fold the body.
+    if (back.length) worms.push({ path: back, dir: worm.dir });
+    spawnShard(cell.c, cell.r);
+  }
+
+  function stepWorms() {
+    if (!worms.length) return;
+
+    for (let wi = worms.length - 1; wi >= 0; wi--) {
+      const worm = worms[wi];
+      if (!worm.path.length) { worms.splice(wi, 1); continue; }
+      const head = worm.path[0];
+      let nc = head.c + worm.dir;
+      let nr = head.r;
+
+      if (nc < 0 || nc >= COLS || podAt(nc, head.r)) {
+        nc = head.c;
+        nr = head.r + 1;
+        worm.dir *= -1;
+      }
+      if (nr >= ROWS - 3) { wormBreach(); return; }
+
+      worm.path.unshift({ c: nc, r: nr });
+      worm.path.pop();
+    }
+  }
+
+  function waveClear() {
+    score += 100;
+    wave += 1;
+    banner = 'WAVE ' + wave;
+    bannerT = 1400;
+    spawnWorms();
+    seedPods(2);
+    updateHud();
+    sfx('wave');
+  }
+
+  function updateDarts(dt) {
+    for (let i = darts.length - 1; i >= 0; i--) {
+      const dart = darts[i];
+      dart.y -= 0.95 * dt;
+      if (dart.y < -14) { darts.splice(i, 1); continue; }
+
+      let hit = false;
+
+      for (let m = pods.length - 1; m >= 0; m--) {
+        const pod = pods[m];
+        const x = pod.c * CELL + CELL / 2, y = pod.r * CELL + CELL / 2;
+        if (Math.abs(dart.x - x) < 9 && Math.abs(dart.y - y) < 9) {
+          pod.hp -= 1;
+          score += pod.hp <= 0 ? 5 : 2;
+          sfx('pod');
+          if (pod.hp <= 0) pods.splice(m, 1);
+          hit = true;
+          updateHud();
+          break;
+        }
+      }
+
+      if (!hit) {
+        for (let s = shards.length - 1; s >= 0; s--) {
+          const shard = shards[s];
+          if (Math.hypot(dart.x - shard.x, dart.y - shard.y) < 12) {
+            shards.splice(s, 1);
+            score += 25;
+            sfx('shard');
+            hit = true;
+            updateHud();
+            break;
+          }
+        }
+      }
+
+      if (!hit) {
+        for (let wi = 0; wi < worms.length && !hit; wi++) {
+          const worm = worms[wi];
+          for (let si = 0; si < worm.path.length; si++) {
+            const seg = worm.path[si];
+            const x = seg.c * CELL + CELL / 2, y = seg.r * CELL + CELL / 2;
+            if (Math.abs(dart.x - x) < 9 && Math.abs(dart.y - y) < 9) {
+              splitWorm(wi, si);
+              score += 15;
+              sfx('split');
+              hit = true;
+              updateHud();
+              if (!worms.length) waveClear();
+              break;
+            }
+          }
+        }
+      }
+
+      if (hit) darts.splice(i, 1);
+    }
+  }
+
+  function updateShards(dt) {
+    for (let i = shards.length - 1; i >= 0; i--) {
+      const shard = shards[i];
+      shard.x += shard.vx * dt;
+      shard.y += shard.vy * dt;
+      shard.spin += 0.003 * dt;
+      shard.life -= dt;
+
+      if (shard.x < 10) { shard.x = 10; shard.vx *= -1; }
+      if (shard.x > W - 10) { shard.x = W - 10; shard.vx *= -1; }
+      if (shard.y < 22) { shard.y = 22; shard.vy *= -1; }
+      if (shard.y > H - 10) { shard.y = H - 10; shard.vy *= -1; }
+
+      if (shard.life <= 0) { shards.splice(i, 1); continue; }
+
+      if (player.inv <= 0 && Math.hypot(shard.x - player.x, shard.y - LANTERN_Y) < 18) {
+        shards.splice(i, 1);
+        loseLife();
+        return;
+      }
+    }
+  }
+
+  function checkWormHit() {
+    for (const worm of worms) {
+      for (const seg of worm.path) {
+        const x = seg.c * CELL + CELL / 2, y = seg.r * CELL + CELL / 2;
+        if (Math.abs(x - player.x) < 20 && Math.abs(y - LANTERN_Y) < 26) {
+          loseLife();
+          return;
+        }
+      }
+    }
+  }
+
+  function update(dt) {
+    if (bannerT > 0) bannerT -= dt;
+    if (flashT > 0) flashT -= dt;
+    if (!started || paused || over) return;
+
+    if (player.inv > 0) player.inv -= dt;
+
+    let mv = 0;
+    if (keys.left) mv -= 1;
+    if (keys.right) mv += 1;
+    if (mv) player.x = clamp(player.x + mv * 0.42 * dt, 20, W - 20);
+
+    fireAcc += dt;
+    if (fireAcc >= 190) {
+      fireAcc = 0;
+      fire();
+    }
+
+    stepAcc += dt;
+    if (stepAcc >= stepMs()) {
+      stepAcc = 0;
+      stepWorms();
+    }
+
+    updateDarts(dt);
+    updateShards(dt);
+    checkWormHit();
+  }
+
+  /* ---------- original art ---------- */
+  function drawLeaf(x, y, size, rot, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#0b2f26';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(size * 0.12, -size * 0.42, size * 0.56, -size * 0.58, size, -size * 0.08);
+    ctx.bezierCurveTo(size * 0.6, size * 0.14, size * 0.18, size * 0.12, 0, 0);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBackground(t) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#071d18');
+    g.addColorStop(0.55, '#04130f');
+    g.addColorStop(1, '#020a08');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    const halo = ctx.createRadialGradient(W * 0.76, 74, 4, W * 0.76, 74, 170);
+    halo.addColorStop(0, 'rgba(255, 214, 128, .26)');
+    halo.addColorStop(0.4, 'rgba(255, 176, 84, .08)');
+    halo.addColorStop(1, 'rgba(255, 176, 84, 0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, W, 290);
+
+    ctx.fillStyle = '#ffe6a8';
+    ctx.beginPath();
+    ctx.arc(W * 0.76, 74, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(7, 29, 24, .55)';
+    ctx.beginPath();
+    ctx.arc(W * 0.76 + 10, 65, 19, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(94, 227, 154, .07)';
+    ctx.lineWidth = 1;
+    for (let y = 96; y < H; y += 34) {
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 18) {
+        const yy = y + Math.sin((x + y) * 0.028) * 5;
+        if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+
+    drawLeaf(0, H, 170, -0.66, 0.85);
+    drawLeaf(W, H, 170, 0.66, 0.85);
+    drawLeaf(W - 20, 120, 90, 2.3, 0.5);
+
+    for (const f of fireflies) {
+      const a = 0.2 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.0013 + f.phase));
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#ffd77a';
+      ctx.beginPath();
+      ctx.arc(
+        f.x + Math.sin(t * 0.00045 + f.phase) * 12 * f.drift,
+        f.y + Math.cos(t * 0.0006 + f.phase) * 9 * f.drift,
+        f.r, 0, Math.PI * 2
+      );
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPod(pod, t) {
+    const x = pod.c * CELL + CELL / 2;
+    const y = pod.r * CELL + CELL / 2 + Math.sin(t * 0.002 + pod.phase) * 1.1;
+
+    ctx.save();
+    ctx.translate(x, y);
+
+    ctx.strokeStyle = '#20443a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 5);
+    ctx.lineTo(0, 10);
+    ctx.stroke();
+
+    const petal = pod.hp >= 3 ? 'rgba(255, 190, 96, .92)'
+      : pod.hp === 2 ? 'rgba(240, 154, 98, .82)'
+      : 'rgba(141, 91, 74, .8)';
+
+    if (pod.hp >= 3) {
+      ctx.shadowColor = 'rgba(255, 190, 96, .5)';
+      ctx.shadowBlur = 8;
+    }
+
+    for (let i = 0; i < 5; i++) {
+      ctx.save();
+      ctx.rotate(i * Math.PI * 2 / 5);
+      ctx.fillStyle = petal;
+      ctx.beginPath();
+      ctx.ellipse(0, -4.6, 3.4, 6.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = pod.hp >= 3 ? '#ffd583' : pod.hp === 2 ? '#f0a06a' : '#8d5b4a';
+    ctx.beginPath();
+    ctx.arc(0, 0, pod.hp === 1 ? 2.2 : 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (pod.hp === 1) {
+      ctx.strokeStyle = 'rgba(30, 12, 10, .7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-4, -1);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(4, -2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function hexPath(radius) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 6 + i * Math.PI / 3;
+      const px = Math.cos(a) * radius;
+      const py = Math.sin(a) * radius;
+      if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  function drawWorms(t) {
+    for (const worm of worms) {
+      for (let i = worm.path.length - 1; i >= 0; i--) {
+        const seg = worm.path[i];
+        const x = seg.c * CELL + CELL / 2;
+        const y = seg.r * CELL + CELL / 2;
+        const head = i === 0;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Math.sin(t * 0.004 + i * 0.45) * 0.16);
+
+        ctx.fillStyle = head ? '#ffce6a' : '#ff8b6e';
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(side * 3, -2);
+          ctx.lineTo(side * 11, -9);
+          ctx.lineTo(side * 4, 3);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        if (head) {
+          ctx.shadowColor = 'rgba(255, 206, 106, .55)';
+          ctx.shadowBlur = 10;
+        }
+        ctx.fillStyle = head ? '#ffce6a' : (i % 2 ? '#ff8b6e' : '#d95f5a');
+        ctx.strokeStyle = '#3a1218';
+        ctx.lineWidth = 1.5;
+        hexPath(head ? 8.2 : 6.2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = head ? '#fff2c4' : 'rgba(255, 226, 190, .55)';
+        ctx.beginPath();
+        ctx.arc(0, 0, head ? 2.6 : 1.7, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (head) {
+          ctx.fillStyle = '#251014';
+          for (const eye of [[-3.6, -2.6], [3.6, -2.6], [0, 3]]) {
+            ctx.beginPath();
+            ctx.arc(eye[0], eye[1], 1.3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawShards(t) {
+    for (const shard of shards) {
+      const alpha = Math.min(1, shard.life / 700);
+      ctx.save();
+      ctx.translate(shard.x, shard.y);
+      ctx.rotate(shard.spin + t * 0.004);
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = '#ff6b55';
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = '#ffb08a';
+      for (let i = 0; i < 3; i++) {
+        ctx.rotate(Math.PI * 2 / 3);
+        ctx.beginPath();
+        ctx.moveTo(0, -9);
+        ctx.lineTo(3, 0);
+        ctx.lineTo(-3, 0);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#3a1218';
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawDarts() {
+    ctx.save();
+    ctx.shadowColor = '#ffd88a';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#ffe3a0';
+    for (const dart of darts) {
+      ctx.beginPath();
+      ctx.ellipse(dart.x, dart.y, 2, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPlayer(t) {
+    if (player.inv > 0 && Math.floor(player.inv / 110) % 2 === 0) return;
+
+    ctx.save();
+    ctx.translate(player.x, LANTERN_Y + Math.sin(t * 0.003) * 1.4);
+
+    const glow = ctx.createRadialGradient(0, 7, 0, 0, 7, 28);
+    glow.addColorStop(0, 'rgba(255, 214, 120, .5)');
+    glow.addColorStop(1, 'rgba(255, 214, 120, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 7, 28, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#0e2b24';
+    ctx.lineWidth = 2;
+    for (const side of [-1, 1]) {
+      for (const k of [-4, 4]) {
+        ctx.beginPath();
+        ctx.moveTo(side * 9, k);
+        ctx.lineTo(side * 16, k + 4);
+        ctx.stroke();
+      }
+    }
+
+    ctx.fillStyle = '#1d4a3d';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 15, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#2f6e58';
+    ctx.beginPath();
+    ctx.ellipse(-4, 0, 9, 11, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(4, 0, 9, 11, 0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(7, 25, 20, .8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(0, 10);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffd06a';
+    ctx.shadowColor = '#ffb84d';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(0, 8, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#122f27';
+    ctx.beginPath();
+    ctx.arc(0, -11, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#2f6e58';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-3, -15);
+    ctx.quadraticCurveTo(-12, -23, -16, -18);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(3, -15);
+    ctx.quadraticCurveTo(12, -23, 16, -18);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function draw(t) {
+    drawBackground(t);
+
+    for (const pod of pods) drawPod(pod, t);
+    drawWorms(t);
+    drawShards(t);
+    drawDarts();
+    drawPlayer(t);
+
+    if (flashT > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.45, flashT / 600);
+      ctx.fillStyle = '#ff6b55';
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    if (bannerT > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, bannerT / 500);
+      ctx.fillStyle = '#ffe9b8';
+      ctx.font = '800 22px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(banner, W / 2, 46);
+      ctx.restore();
+    }
+  }
+
+  function loop(t) {
+    const dt = last ? Math.min(80, t - last) : 0;
+    last = t;
+    update(dt);
+    draw(t);
+    requestAnimationFrame(loop);
+  }
+
+  function aim(e) {
+    const rect = cv.getBoundingClientRect();
+    player.x = clamp((e.clientX - rect.left) * (W / rect.width), 20, W - 20);
+  }
+
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'arrowleft' || k === 'a') { e.preventDefault(); keys.left = true; }
+    else if (k === 'arrowright' || k === 'd') { e.preventDefault(); keys.right = true; }
+    else if (k === ' ' || k === 'arrowup' || k === 'w') {
+      e.preventDefault();
+      if (!started || paused) play();
+    } else if (k === 'p' || k === 'escape') { e.preventDefault(); togglePause(); }
+    else if (k === 'r') { e.preventDefault(); restart(); }
+    else if (k === 'm') { e.preventDefault(); toggleMute(); }
+  });
+
+  document.addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'arrowleft' || k === 'a') keys.left = false;
+    if (k === 'arrowright' || k === 'd') keys.right = false;
+  });
+
+  cv.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    aim(e);
+    if (!started || paused) play();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (e.pressure > 0 || e.buttons) aim(e);
+  });
+
+  function fitBoard() {
+    const top = cv.getBoundingClientRect().top + window.scrollY;
+    const max = Math.max(240, window.innerHeight - top - 20);
+    cv.style.maxHeight = Math.round(max) + 'px';
+  }
+
+  window.addEventListener('resize', fitBoard);
+  window.addEventListener('orientationchange', fitBoard);
+
+  startBtn.addEventListener('click', () => {
+    overlay.classList.remove('show');
+    overlayAction();
+  });
+  $('restartBtn').addEventListener('click', restart);
+  pauseBtn.addEventListener('click', togglePause);
+  muteBtn.addEventListener('click', toggleMute);
+
+  syncMute();
+  fitBoard();
+  newGame();
+  ask('🌙', 'The garden at midnight',
+    'Steer the lantern beetle with ← → or A/D, or drag on touch. Pollen darts fire on their own. Split the thornworm, keep clear of the bouncing thorns, and never let a worm reach the lantern line.',
+    '▶ Light the lantern', play);
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
