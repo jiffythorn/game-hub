@@ -19,7 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "downloads"
 
 SITE_ZIP = "game-hub-offline.zip"
-EXCLUDE_DIRS = {".git", "downloads", ".github", "__pycache__"}
+# tools/ holds local-only operator pages (the credit minter), so it never
+# ships in a download.
+EXCLUDE_DIRS = {".git", "downloads", ".github", "__pycache__", "tools"}
 EXCLUDE_FILES = {".DS_Store"}
 
 
@@ -43,6 +45,9 @@ def make_standalone(html: str, name: str) -> str:
     html = html.replace('href="../index.html#games"', 'href="#"')
     html = html.replace('href="../index.html#download"', 'href="#"')
     html = html.replace('href="../index.html"', 'href="#"')
+    # The standalone copy has no sibling pages; point the terms link at the
+    # published site instead of leaving it to 404.
+    html = html.replace('href="../terms.html', 'href="https://jiffythorn.github.io/game-hub/terms.html')
     html = re.sub(
         rf'<a class="btn btn-green btn-sm" href="\.\./downloads/{name}\.zip" download>⬇ Download</a>',
         "",

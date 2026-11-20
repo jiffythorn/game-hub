@@ -3,7 +3,7 @@
 Durable plan/progress log so a future session (or a fresh agent with no chat
 history) can see what is finished, what is verified, and what is still open.
 
-**Last updated:** 2026-10-26
+**Last updated:** 2026-11-07 (Bingo 2 points, leaderboard record, restore code v2)
 
 ## Current task: Bingo game (multiplayer + bots)
 
@@ -85,6 +85,180 @@ mirrors the used API (`on/once/connect/send/close/destroy`, `connection`,
 - 140 chars, control characters stripped, rendered with `textContent`, 500ms
   per-player rate limit, last 80 messages kept in memory only.
 - Join/leave produce system lines (`"Nova joined the room"`) broadcast by host.
+
+## Bingo 2 economy research (2026-11-07)
+
+Requested: deep research into how credit-based online games work (buying
+credits, pot-funded wins, retention) and what could be built into Bingo 2.
+
+**Status: research + design proposal only. Nothing implemented, no code
+changed.** The full write-up — market findings with sources, the legal line on
+purchasable/redeemable credits, the proposed credit/pot economy with numbers,
+and a phased build plan — is in [`BINGO-2-ECONOMY.md`](BINGO-2-ECONOMY.md).
+
+Headline conclusions, for a session that cannot open the doc:
+
+- Social bingo apps (Blitz, Bash, Aloha) do **not** run player-funded pots;
+  prizes are algorithmic per player. Real pots exist in regulated bingo
+  (stakes − participation fee), pari-mutuel apps (Bingo Tour) and pool/poker
+  (8 Ball Pool).
+- Retention is driven by **competition events** (+212% YoY at Blitz) and
+  drip rewards more than by features; a weak collection is revenue-negative.
+- A pure bot/player pot with no sink inflates and dies; needs a rake, a stake
+  ladder and top-3 payouts.
+- Selling credits or letting them be redeemed = gambling (UK licence; NY/TN/WA
+  enforcement). Stay single-currency, non-redeemable, free entry. The doc's §5
+  now models the four switches (purchase / value out / transfer / rake) and the
+  three separate robot issues (gambling test, disclosure, overlay vs
+  house-banked).
+- Cross-device saves are specified in the doc's §6: a self-contained restore
+  code (no backend, no PII, ships with the wallet) and an optional anonymous
+  sync key backed by a tiny Worker. No accounts.
+- Operator grants are §7: ECDSA-signed gift tokens verified against embedded
+  public keys (role caps enforced client-side), `?gift=` links, a redeem field,
+  an in-room host tip, and a local-only `tools/mint.html`. Single use and
+  revocation need the Worker.
+- Best structural change for Bingo 2: replace "first bingo ends the round"
+  with a **call budget + multiple bingos paid by rank** (55/25/12), which is
+  what makes buying extra cards meaningful.
+
+### Implemented: points, tables, pot and jackpot (2026-11-07)
+
+Phases 1 and 2 of [`BINGO-2-ECONOMY.md`](BINGO-2-ECONOMY.md) are built.
+
+**Files:** `games/bingo-2.html`, `bingo-2.css`, `downloads/*.zip` (regenerated).
+
+**What shipped**
+
+- **Points**: 1,000 to start, persisted in `gh.bingo2.wallet`. The HUD carries
+  `Points` and `Pot` chips. Points are score tokens: not buyable, not
+  transferable in the UI, never redeemable for anything of value.
+- **Tables**: Practice (0) / Bronze 10 / Silver 50 / Gold 250 / Champion
+  1,000 per card, chosen in the create form and the lobby. `Cards each` 1–3
+  applies to every seat; ante = stake × cards.
+- **Pot**: entries = seats × ante; 6% rake (half to the jackpot, half deleted);
+  jackpot also takes 5% of entries. `Pot` and `🎰` show in the room bar.
+- **Round shape**: the round no longer ends at the first bingo. It runs to a call
+  budget (line 32, corners 45, blackout 75) and pays every bingo by rank —
+  55 / 25 / 12, remainder rolls into the jackpot. Nobody bingos → whole pot rolls.
+- **Jackpot**: seeded at 10 × stake, pays a bingo inside 12 (line) / 20 (corners)
+  / 52 (blackout) calls, then resets to seed.
+- **Bots** ante from their own balance but their winnings are **discarded** (the
+  sink) and their balance refills to 3,000; labelled 🤖 as before.
+- **Multi-card**: card tabs above the board; daub messages carry a card index
+  (`{t:'daub', c, n, round}`); guests apply daubs per card.
+- **Patterns**: the host picks Any line, Four corners, X, T, H, **Climb the
+  ladder** (a staircase of squares), **Bullseye** (the 3×3 target around the
+  centre; the centre is a live number, not a free space) or Blackout. Each
+  pattern is a plain set of card indices checked by `findWin`, with its own call
+  budget and jackpot window. `makeCard(freeCenter)` deals a live centre for
+  Bullseye; a `0` at index 12 in the start payload still means a free centre, so
+  the guest side needs no extra protocol.
+  Solo play uses the same pattern list: a picker in the page head (saved in
+  `gh.bingo2.soloPattern`) deals a matching card, including a live centre for
+  Bullseye, and best scores are kept per pattern (`gh.bingo2.best.<pattern>`;
+  an older single best migrates to any-line).
+  A pattern of the day rotates through the table one step per local calendar
+  day (`dailyPatternKey()`, day number from local Y/M/D in UTC), shown as a
+  header chip that plays it, and offered as a `daily` shortcut in the room
+  form that resolves to the concrete pattern on create.
+  A streak counter (`gh.bingo2.daily`: `last`, `streak`, `best`) counts
+  consecutive local days with a completed round on that day's pattern — solo
+  wins and no-bingos, plus seated room rounds whose pattern matches — and shows
+  as a `🔥 Streak` HUD chip in solo. It is calendar-day based, so it lapses
+  silently if a day is missed and resets to 1 on the next daily play.
+  The wallet record also tracks `staked` (points spent on cards in seated
+  rounds) so the panel can show **Return on cards** = earned ÷ staked. That
+  makes a 10-point heads-up win and a 1,000-point full-table win comparable
+  instead of ranking by pot size. Restore codes are now v3 (22 bytes, 9
+  four-character groups) carrying points, earned and staked plus games/wins;
+  v2 and v1 codes still decode, with staked defaulting to zero.
+  The record is split into `solo` and `room` standings: solo carries games,
+  wins and win rate (no points move in solo), rooms carry games, wins, gross
+  points won, **net** (gross − card costs) and return. Restore codes are v4
+  (25 bytes, 10 four-character groups) carrying both standings; v3/v2 map their
+  old flat counters onto the room side, v1 still carries points only.
+  Codes are v5 (26-byte payload, 12 four-character groups) and also carry the
+  daily streak: `last` as a 16-bit calendar day, streak and best as bytes. A
+  restore keeps whichever streak reached the later day (longer one on a tie)
+  and the highest best, so moving browsers doesn't reset the run.
+  A carried streak that ended more than a day before today is called out in
+  the preview and again after the restore: the best is kept, but it is not
+  presented as a live run.
+  A single streak freeze (`gh.bingo2.daily.freezes`, capped at 1) is earned
+  by finishing a blackout in solo or winning a blackout room, and is spent
+  automatically when exactly one day was missed. It rides in the code's
+  formerly-reserved byte, so the v5 length is unchanged.
+  The daily record also keeps `days` (last 7, `{d, t}` with t 0 played / 1
+  frozen), rendered as a strip under the HUD: weekday + day number, amber for
+  played, snowflake for a frozen day, dim for missed. History is local-only;
+  codes carry the streak and freeze, not the strip.
+  While a freeze is banked and today's pattern is still unplayed, a small
+  reminder sits under the strip with a "Play today" button; it hides once the
+  daily is played, the freeze is spent, or a room is entered.
+  "Not today" stores `gh.bingo2.daily.snoozed = today`, so the reminder stays
+  hidden for the rest of that day and returns on the next one; snoozing never
+  touches the streak or the freeze itself.
+  The reminder names today's pattern and its button doubles as a state cue:
+  "Play today" switches to it, and once it is the selected solo pattern the
+  button reads "✓ Today selected" and is disabled.
+- **Guests** send their balance on join (honour system, per the doc §6.5), receive
+  `start`/`lobby`/`end` payloads with credits, pot, payouts and jackpot, and see
+  the settlement lines in the end overlay.
+
+- **Explainer**: a collapsible "How credits work" panel sits in the room dialog
+  (visible while creating, joining and waiting in the lobby) and states that
+  credits have **no cash value** and that bots ante but **never collect**.
+- **Terms**: new `terms.html` with a plain-language terms page and a prominent
+  play-money notice (no cash value, nothing buyable, bots never collect, host
+  is the bank, chat is unmoderated). Linked from the index and guestbook
+  footers and from the room-dialog explainer; `build_downloads.py` rewrites the
+  link to the published URL in standalone game copies.
+
+**Verified:** `node --check` on the extracted script; a jsdom harness (fake clock,
+controllable timers, stubbed `Peer` broker shared by two windows) covering solo
+start, room creation, a guest joining and daubing, a full 32-ball round with pot
+57, jackpot growth, settlement back to both clients, and a second round charging
+the ante again — all checks passed. `python3 scripts/build_downloads.py` rebuilt.
+
+- **Wallet**: credits persist to `gh.bingo2.wallet` in localStorage on every
+  change (`setMyCredits`), and the room dialog carries a wallet panel: current
+  balance, a copyable `GH2-XXXX-…` restore code (base32 over a CRC32-checked payload
+  XORed with a fixed pad, points clamped to 0–10,000,000; v2 also carries
+  games, wins and points earned, v1 codes still decode) and a two-step restore (parse → "replace my balance" confirm).
+  Restoring is disabled inside a room, because the host's ledger is
+  authoritative and would otherwise overwrite the restored wallet.
+
+- **Mint tool**: `tools/mint.html` is a self-contained local page that signs
+  `GH2G.1.<role>.<payload>.<sig>` grants with an ECDSA P-256 / SHA-256 key held
+  in that browser (create, import, export, delete, SHA-256 fingerprint, JWK for
+  the future verifier). Role caps promo 1,000 / op 10,000 / prize 25,000,
+  expiry 1h–90d, batches of 25, gift links from a configurable game URL, CSV
+  export and a verify panel. `tools/` is excluded from every ZIP.
+
+- **Gifts / redeem**: `games/bingo-2.html` holds `GRANT_KEY` (null by default)
+  and verifies `GH2G` grants with Web Crypto: signature, role cap, expiry, then
+  a nonce claim ledger (`gh.bingo2.claims`, last 200) so a code works once per
+  browser. `?gift=` opens a redeem overlay; the wallet panel also has a redeem
+  field. Minting/redeeming is blocked inside a room, where the host ledger
+  would overwrite the result. Pair a copy by pasting the snippet the mint page
+  now offers (it replaces `const GRANT_KEY = null;`).
+
+- **Points follow the player, standing stays on the board** (2026-11-07): the
+  wallet keeps a record — games played, games won, points earned — next to the
+  balance. `recordRound()` runs once per seated round on the host (before the
+  payout is ranked) and once on each guest (from the `end` payload, which now
+  carries `cardsCount` and `seatIds`). The record is rendered in the wallet
+  panel and the settlement overlay, and restore code v2 carries it, so moving
+  to another browser brings the points **and** the record with them. Importing
+  a code merges stats upward (`Math.max` on each counter, points replaced), so a
+  restore can never lower leaderboard standing. Nothing is purchasable,
+  cashable or transferable; the leaderboard standing is the whole prize.
+
+**Known gaps:** the wallet is per browser — no server sync, and a restore code
+is a snapshot rather than a live link; gift codes are verified client-side (a
+claim ledger, not a server), so a determined player can still edit storage; the
+pot is only play money and nothing is purchasable (see doc §5).
 
 ## Mobile / visibility pass (2026-10-26)
 
