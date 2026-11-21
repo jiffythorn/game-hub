@@ -19,9 +19,10 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "downloads"
 
 SITE_ZIP = "game-hub-offline.zip"
+SITE_URL = "https://jiffythorn.github.io/game-hub"
 # tools/ holds local-only operator pages (the credit minter), so it never
 # ships in a download.
-EXCLUDE_DIRS = {".git", "downloads", ".github", "__pycache__", "tools"}
+EXCLUDE_DIRS = {".git", ".github", "__pycache__", "tools"}
 EXCLUDE_FILES = {".DS_Store"}
 
 
@@ -45,9 +46,10 @@ def make_standalone(html: str, name: str) -> str:
     html = html.replace('href="../index.html#games"', 'href="#"')
     html = html.replace('href="../index.html#download"', 'href="#"')
     html = html.replace('href="../index.html"', 'href="#"')
-    # The standalone copy has no sibling pages; point the terms link at the
-    # published site instead of leaving it to 404.
-    html = html.replace('href="../terms.html', 'href="https://jiffythorn.github.io/game-hub/terms.html')
+    # The standalone copy has no sibling pages; point the terms and guestbook
+    # links at the published site instead of leaving them to 404.
+    html = html.replace('href="../terms.html', f'href="{SITE_URL}/terms.html')
+    html = html.replace('href="../chat.html"', f'href="{SITE_URL}/chat.html"')
     html = re.sub(
         rf'<a class="btn btn-green btn-sm" href="\.\./downloads/{name}\.zip" download>⬇ Download</a>',
         "",
@@ -78,7 +80,19 @@ def build_site_zip() -> None:
         rel = p.relative_to(ROOT)
         if rel.parts[0] in EXCLUDE_DIRS or p.name in EXCLUDE_FILES:
             continue
-        entries.append((f"game-hub/{rel.as_posix()}", p))
+        if rel.parts[0] == "downloads" and p.name == SITE_ZIP:
+            continue
+        source: Path | str = p
+        if p.suffix == ".html":
+            html = p.read_text(encoding="utf-8")
+            # The bundle cannot contain a copy of itself, so its self-download
+            # button goes to the published bundle instead of a dead local path.
+            html = html.replace(
+                'href="downloads/game-hub-offline.zip"',
+                f'href="{SITE_URL}/downloads/game-hub-offline.zip"',
+            )
+            source = html
+        entries.append((f"game-hub/{rel.as_posix()}", source))
     entries.sort(key=lambda e: e[0])
     write_zip(OUT / SITE_ZIP, entries)
 
@@ -102,8 +116,8 @@ def main() -> None:
     if OUT.exists():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True)
-    build_site_zip()
     build_game_zips()
+    build_site_zip()
     print("Done.")
 
 

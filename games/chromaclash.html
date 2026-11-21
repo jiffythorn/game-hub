@@ -969,7 +969,7 @@
 
       <div class="cc-rule">
         <h3>Rooms, codes &amp; chat</h3>
-        <p>Host a room to get a 5-character code and an invite link. Friends open the link or type the code, join the lobby with a name, and chat while they wait. The host adds smart bots to fill empty seats and deals when everyone is ready. The host's tab runs the table, so keep it open — if a guest drops mid-round, a bot takes over their hand.</p>
+        <p>Host a room to get a 5-character code and an invite link. Friends open the link or type the code, join the lobby with a name, and chat while they wait. The host adds smart bots to fill empty seats and deals when everyone is ready. The host's tab runs the table, so keep it open — if a guest drops mid-round, their seat is held for 60 seconds so they can reconnect; after that a bot takes over their hand.</p>
       </div>
 
       <div class="cc-rule">
@@ -1028,6 +1028,15 @@
   const MAX_SEATS = 4;
   const SOLO_GRACE = 4300;
   const BOT_CATCH = 3900;
+  const CHAT_LIMIT = 140;
+  const CHAT_HISTORY = 80;
+  const CHAT_RENDER = 60;
+  const CHAT_BURST = 5;
+  const CHAT_REFILL_MS = 1200;
+  const RECONNECT_GRACE = 60000;
+  const RECONNECT_TRIES = 24;
+  const SESSION_KEY = 'gh.cc.room';
+  const CLIENT_KEY = 'gh.cc.client';
 
   let st = null;
   let picker = null;
@@ -1036,6 +1045,7 @@
   let peerLoader = null;
   let connecting = false;
   const timers = new Set();
+  const dropTimers = new Map();
 
   const net = {
     role: 'solo',      // solo | host | guest
@@ -1046,7 +1056,14 @@
     code: '',
     meId: 'me',
     name: 'You',
+    clientId: '',
     started: false,
+    reconnecting: false,
+    reconnectAttempt: 0,
+    reconnectTimer: null,
+    reconnectStartedAt: 0,
+    leaving: false,
+    hostClosed: false,
     scores: {}
   };
   const lobby = { players: [], bots: 2 };
@@ -1078,7 +1095,40 @@
     return String(raw || '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14);
   }
   function cleanChat(raw) {
-    return String(raw || '').replace(/[<>&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 140);
+    if (typeof raw !== 'string') return '';
+    return raw.replace(/[<>&]/g, '').replace(/\s+/g, ' ').trim().slice(0, CHAT_LIMIT);
+  }
+  function cleanClientId(raw) {
+    return String(raw || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+  }
+  function makeClientId() {
+    try {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    } catch { /* fall through */ }
+    return 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+  }
+  function getClientId() {
+    let id = cleanClientId(getSave(CLIENT_KEY));
+    if (!id) {
+      id = makeClientId();
+      setSave(CLIENT_KEY, id);
+    }
+    return id;
+  }
+  function readSession() {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      const saved = raw ? JSON.parse(raw) : null;
+      if (saved && /^[A-Z0-9]{5}$/.test(String(saved.code || ''))) return saved;
+    } catch { /* storage can be blocked */ }
+    return null;
+  }
+  function saveSession(code, name) {
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ code, name })); } catch { /* blocked */ }
+    net.hostClosed = false;
+  }
+  function clearSession() {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* blocked */ }
   }
   function later(fn, ms) {
     const t = setTimeout(() => { timers.delete(t); fn(); }, ms);
@@ -1152,7 +1202,8 @@
       id: seat.id,
       name: seat.name,
       glyph: seat.glyph || '◆',
-      isBot: !!seat.isBot,
+      isBot: !!seat.isBot || (net.role === 'host' && !!seat.offline),
+      offline: !!seat.offline && !seat.isBot && net.role !== 'host',
       local: seat.id === net.meId,
       hand: [],
       saidSolo: false,
@@ -1241,6 +1292,7 @@
       const idx = st.turn;
       later(() => {
         if (!st || st.over || st.round !== round || st.turn !== idx || picker) return;
+        if (!st.players[idx] || !st.players[idx].isBot) return;
         botTurn(st.players[idx]);
       }, 720 + Math.random() * 520);
       return;
@@ -1408,7 +1460,7 @@
   }
 
   function botTurn(player) {
-    if (!st || st.over || picker) return;
+    if (!st || st.over || picker || !player || !player.isBot) return;
     const idx = st.players.indexOf(player);
     if (st.turn !== idx) return;
 
@@ -1659,7 +1711,8 @@
         saidSolo: p.saidSolo,
         active: st.turn === i && !st.over,
         you: p.id === seat.id,
-        bot: p.isBot
+        bot: p.isBot,
+        offline: !!p.offline
       })),
       youId: seat.id,
       hand: seat.hand,
@@ -1752,6 +1805,12 @@
         flag.className = 'cc-solo-flag';
         flag.textContent = 'SOLO!';
         count.appendChild(flag);
+      }
+      if (player.offline) {
+        const away = document.createElement('span');
+        away.className = 'cc-solo-flag';
+        away.textContent = 'AWAY';
+        count.appendChild(away);
       }
       body.append(name, count);
 
@@ -2083,9 +2142,12 @@
       const name = document.createElement('span');
       name.textContent = player.name;
       const tag = document.createElement('small');
-      tag.textContent = player.id === net.meId ? 'you' : player.isBot ? 'bot' : (player.host ? 'host' : 'guest');
+      tag.textContent = player.offline
+        ? 'reconnecting'
+        : player.id === net.meId ? 'you' : player.isBot ? 'bot' : (player.host ? 'host' : 'guest');
       seat.append(glyph, name, tag);
       if (player.isBot) seat.title = 'Smart bot';
+      else if (player.offline) seat.title = 'Connection lost — their seat is held';
       list.appendChild(seat);
     });
 
@@ -2203,8 +2265,8 @@
     peer.on('connection', conn => {
       net.conns.set(conn.peer, conn);
       conn.on('data', msg => onHostData(conn, msg));
-      conn.on('close', () => removeGuest(conn.peer));
-      conn.on('error', () => removeGuest(conn.peer));
+      conn.on('close', () => guestConnectionClosed(conn));
+      conn.on('error', () => guestConnectionClosed(conn));
     });
     peer.on('error', err => {
       if (err && err.type === 'network') flash('Peer network hiccup — trying to reconnect…');
@@ -2212,23 +2274,178 @@
     peer.on('disconnected', () => { try { peer.reconnect(); } catch { /* gone */ } });
   }
 
+  function bindGuestConn(conn, seat) {
+    const stale = [];
+    net.conns.forEach((other, peerId) => {
+      if (other !== conn && other.seatId === seat.id) stale.push([peerId, other]);
+    });
+    conn.seatId = seat.id;
+    net.conns.set(conn.peer, conn);
+    stale.forEach(([peerId, other]) => {
+      other._leaving = true;
+      net.conns.delete(peerId);
+      try { other.close(); } catch { /* gone */ }
+    });
+  }
+
+  function activeConnFor(seatId) {
+    for (const conn of net.conns.values()) {
+      if (conn.seatId === seatId && conn.open) return conn;
+    }
+    return null;
+  }
+
+  function guestConnectionClosed(conn) {
+    if (net.role !== 'host' || conn._leaving || net.hostClosed || net.leaving) return;
+    if (net.conns.get(conn.peer) === conn) net.conns.delete(conn.peer);
+    const seatId = conn.seatId;
+    if (!seatId) return;
+    // A replacement connection may already be bound; don't mark that seat away.
+    if (activeConnFor(seatId)) return;
+    markGuestOffline(seatId);
+  }
+
+  function cancelDropTimer(seatId) {
+    const timer = dropTimers.get(seatId);
+    if (timer) {
+      clearTimeout(timer);
+      dropTimers.delete(seatId);
+    }
+  }
+
+  function clearDropTimers() {
+    dropTimers.forEach(clearTimeout);
+    dropTimers.clear();
+  }
+
+  function armDropTimer(seatId) {
+    cancelDropTimer(seatId);
+    const timer = setTimeout(() => {
+      dropTimers.delete(seatId);
+      expireGuestSeat(seatId);
+    }, RECONNECT_GRACE);
+    dropTimers.set(seatId, timer);
+  }
+
+  function markGuestOffline(seatId) {
+    if (net.role !== 'host') return;
+    const seat = lobby.players.find(p => p.id === seatId);
+    if (!seat || seat.offline) return;
+    seat.offline = true;
+
+    const gameSeat = st ? st.players.find(p => p.id === seatId) : null;
+    if (gameSeat && !gameSeat.isBot) gameSeat.offline = true;
+
+    if (net.started && st) {
+      st.note = `${seat.name} lost connection — their seat is being held.`;
+      st.log.unshift(`${seat.name} lost connection — waiting for them to reconnect.`);
+      st.log = st.log.slice(0, 4);
+      render();
+    }
+    broadcastLobby();
+    renderLobby();
+    addSystem(`${seat.name} lost connection — holding their seat for ${Math.round(RECONNECT_GRACE / 1000)}s.`);
+    armDropTimer(seatId);
+  }
+
+  function expireGuestSeat(seatId) {
+    if (net.role !== 'host') return;
+    const seat = lobby.players.find(p => p.id === seatId);
+    if (!seat || !seat.offline) return;
+
+    const gameSeat = st ? st.players.find(p => p.id === seatId) : null;
+    if (net.started && st && !st.over && gameSeat) {
+      gameSeat.isBot = true;
+      gameSeat.offline = false;
+      st.log.unshift(`${gameSeat.name} did not reconnect — a bot takes over.`);
+      st.log = st.log.slice(0, 4);
+      st.note = `${gameSeat.name} did not reconnect. A bot is playing their hand.`;
+      if (st.turn === st.players.indexOf(gameSeat)) startTurn();
+      else render();
+      broadcastLobby();
+      renderLobby();
+      return;
+    }
+
+    lobby.players = lobby.players.filter(p => p.id !== seatId);
+    syncLobbyBots();
+    broadcastLobby();
+    renderLobby();
+    addSystem(`${seat.name}'s seat was released.`);
+  }
+
+  function publicPlayers() {
+    return lobby.players.map(p => ({
+      id: p.id,
+      name: p.name,
+      glyph: p.glyph,
+      isBot: !!p.isBot,
+      host: !!p.host,
+      offline: !!p.offline
+    }));
+  }
+
+  function sendWelcome(conn, seat, reconnected) {
+    safeSend(conn, {
+      t: 'welcome',
+      code: net.code,
+      youId: seat.id,
+      players: publicPlayers(),
+      bots: lobby.bots,
+      started: net.started,
+      reconnected: !!reconnected
+    });
+    if (net.started && st) {
+      const view = viewFor(seat.id);
+      if (view) safeSend(conn, { t: 'state', view });
+    }
+  }
+
+  function rejectConnection(conn, text) {
+    conn._leaving = true;
+    net.conns.delete(conn.peer);
+    safeSend(conn, { t: 'error', msg: text });
+    later(() => { try { conn.close(); } catch { /* gone */ } }, 500);
+  }
+
   function broadcastLobby() {
     if (net.role !== 'host') return;
-    net.conns.forEach(conn => safeSend(conn, {
+    joinedConns().forEach(conn => safeSend(conn, {
       t: 'lobby',
       code: net.code,
-      players: lobby.players,
+      players: publicPlayers(),
       bots: lobby.bots,
       started: net.started
     }));
   }
 
+  function activeGuestSeat(conn) {
+    if (!conn || !conn.open || !conn.seatId || net.conns.get(conn.peer) !== conn) return null;
+    return lobby.players.find(p => p.id === conn.seatId && !p.isBot) || null;
+  }
+
+  function joinedConns() {
+    return Array.from(net.conns.values()).filter(conn => activeGuestSeat(conn));
+  }
+
+  function allowGuestChat(seat) {
+    const now = Date.now();
+    const bucket = seat.chatBudget || (seat.chatBudget = { tokens: CHAT_BURST, at: now });
+    const refill = Math.floor((now - bucket.at) / CHAT_REFILL_MS);
+    if (refill > 0) {
+      bucket.tokens = Math.min(CHAT_BURST, bucket.tokens + refill);
+      bucket.at += refill * CHAT_REFILL_MS;
+    }
+    if (bucket.tokens < 1) return false;
+    bucket.tokens -= 1;
+    return true;
+  }
+
   function broadcastState() {
     if (net.role !== 'host' || !st || !net.started) return;
-    net.conns.forEach((conn, peerId) => {
-      const seat = st.players.find(p => p.id === peerId);
-      if (!seat) return;
-      safeSend(conn, { t: 'state', view: viewFor(peerId) });
+    joinedConns().forEach(conn => {
+      const view = viewFor(conn.seatId);
+      if (view) safeSend(conn, { t: 'state', view });
     });
   }
 
@@ -2236,73 +2453,107 @@
     if (!msg || typeof msg !== 'object' || net.role !== 'host') return;
 
     if (msg.t === 'join') {
-      if (net.started || net.phase !== 'lobby') {
-        net.conns.delete(conn.peer);
-        safeSend(conn, { t: 'error', msg: 'That round is already running. Ask the host for a new room.' });
-        later(() => { try { conn.close(); } catch { /* gone */ } }, 500);
+      // One connection owns one seat. A reconnect arrives on a fresh connection.
+      if (conn.seatId) return;
+      const clientKey = cleanClientId(msg.clientId) || ('peer-' + conn.peer);
+      let seat = lobby.players.find(p => p.clientId === clientKey && !p.isBot);
+      const reconnected = !!seat;
+
+      if (!seat && (net.started || net.phase !== 'lobby')) {
+        rejectConnection(conn, 'That round is already running. Ask the host for a new room.');
         return;
       }
-      if (lobby.players.filter(p => !p.isBot).length >= MAX_SEATS) {
-        net.conns.delete(conn.peer);
-        safeSend(conn, { t: 'error', msg: 'This room is full.' });
-        later(() => { try { conn.close(); } catch { /* gone */ } }, 500);
+      if (!seat && lobby.players.filter(p => !p.isBot).length >= MAX_SEATS) {
+        rejectConnection(conn, 'This room is full.');
         return;
       }
 
-      const name = cleanName(msg.name) || 'Guest';
-      let seat = lobby.players.find(p => p.id === conn.peer);
+      const name = cleanName(msg.name) || (seat ? seat.name : 'Guest');
       if (!seat) {
-        seat = { id: conn.peer, name, glyph: GUEST_GLYPHS[(lobby.players.length + 1) % GUEST_GLYPHS.length], isBot: false };
+        seat = {
+          id: 'g-' + makeClientId(),
+          clientId: clientKey,
+          name,
+          glyph: GUEST_GLYPHS[(lobby.players.length + 1) % GUEST_GLYPHS.length],
+          isBot: false,
+          offline: false
+        };
         lobby.players.push(seat);
       } else {
         seat.name = name;
+        seat.offline = false;
       }
 
+      bindGuestConn(conn, seat);
+      cancelDropTimer(seat.id);
       syncLobbyBots();
-      safeSend(conn, {
-        t: 'welcome',
-        code: net.code,
-        youId: conn.peer,
-        players: lobby.players,
-        bots: lobby.bots
-      });
+
+      const gameSeat = st ? st.players.find(p => p.id === seat.id) : null;
+      if (gameSeat) {
+        gameSeat.isBot = false;
+        gameSeat.offline = false;
+        gameSeat.name = name;
+      }
+
+      sendWelcome(conn, seat, reconnected);
       broadcastLobby();
       renderLobby();
-      addSystem(`${name} joined the room.`);
+
+      if (reconnected) {
+        addSystem(`${name} reconnected.`);
+        if (gameSeat) {
+          st.log.unshift(`${name} reconnected and reclaimed their seat.`);
+          st.log = st.log.slice(0, 4);
+          st.note = `${name} is back at the table.`;
+          if (!st.over && st.turn === st.players.indexOf(gameSeat)) startTurn();
+          else render();
+        }
+      } else {
+        addSystem(`${name} joined the room.`);
+      }
       return;
     }
+
+    // Only a currently-bound, joined seat may chat or act. This also ignores
+    // delayed messages from a connection that has since been replaced.
+    const seat = activeGuestSeat(conn);
+    if (!seat) return;
+    const seatId = seat.id;
 
     if (msg.t === 'play') {
-      performAction(conn.peer, { type: 'play', cardId: msg.card, hue: msg.hue, swap: msg.swap });
+      performAction(seatId, { type: 'play', cardId: msg.card, hue: msg.hue, swap: msg.swap });
       return;
     }
-    if (msg.t === 'draw') { performAction(conn.peer, { type: 'draw' }); return; }
-    if (msg.t === 'pass') { performAction(conn.peer, { type: 'pass' }); return; }
-    if (msg.t === 'solo') { performAction(conn.peer, { type: 'solo' }); return; }
-    if (msg.t === 'catch') { performAction(conn.peer, { type: 'catch' }); return; }
+    if (msg.t === 'draw') { performAction(seatId, { type: 'draw' }); return; }
+    if (msg.t === 'pass') { performAction(seatId, { type: 'pass' }); return; }
+    if (msg.t === 'solo') { performAction(seatId, { type: 'solo' }); return; }
+    if (msg.t === 'catch') { performAction(seatId, { type: 'catch' }); return; }
 
     if (msg.t === 'chat') {
-      const seat = lobby.players.find(p => p.id === conn.peer);
-      const from = seat ? seat.name : 'Guest';
+      if (!allowGuestChat(seat)) return;
       const text = cleanChat(msg.text);
-      if (text) hostChat(from, text);
+      if (text) hostChat(seat.name, text);
       return;
     }
 
-    if (msg.t === 'bye') removeGuest(conn.peer);
+    if (msg.t === 'bye') removeGuest(seatId, true);
   }
 
-  function removeGuest(peerId) {
-    const conn = net.conns.get(peerId);
-    if (!conn) return;
-    net.conns.delete(peerId);
-    try { conn.close(); } catch { /* gone */ }
+  function removeGuest(seatId, explicit = false) {
+    cancelDropTimer(seatId);
+    net.conns.forEach((conn, peerId) => {
+      if (conn.seatId === seatId) {
+        conn._leaving = true;
+        net.conns.delete(peerId);
+        try { conn.close(); } catch { /* gone */ }
+      }
+    });
 
-    const lobbySeat = lobby.players.find(p => p.id === peerId);
-    const gameSeat = st ? st.players.find(p => p.id === peerId) : null;
+    const lobbySeat = lobby.players.find(p => p.id === seatId);
+    const gameSeat = st ? st.players.find(p => p.id === seatId) : null;
 
     if (lobbySeat) {
-      lobby.players = lobby.players.filter(p => p.id !== peerId);
+      lobby.players = lobby.players.filter(p => p.id !== seatId);
       syncLobbyBots();
       broadcastLobby();
       renderLobby();
@@ -2311,14 +2562,12 @@
 
     if (gameSeat && !st.over) {
       gameSeat.isBot = true;
+      gameSeat.offline = false;
       gameSeat.local = false;
-      st.log.unshift(`${gameSeat.name} left — a bot takes over.`);
-      st.note = `${gameSeat.name} left the table.`;
-      if (st.turn === st.players.indexOf(gameSeat)) {
-        startTurn();
-      } else {
-        render();
-      }
+      st.log.unshift(`${gameSeat.name} ${explicit ? 'left' : 'did not return'} — a bot takes over.`);
+      st.note = `${gameSeat.name} ${explicit ? 'left the table' : 'did not return'}. A bot is playing their hand.`;
+      if (st.turn === st.players.indexOf(gameSeat)) startTurn();
+      else render();
     } else if (gameSeat) {
       render();
     }
@@ -2366,9 +2615,14 @@
         net.peer = peer;
         net.code = code;
         net.meId = 'host';
+        net.clientId = getClientId();
         net.started = false;
+        net.reconnecting = false;
+        net.leaving = false;
+        net.hostClosed = false;
         net.scores = {};
         net.conns.clear();
+        clearDropTimers();
         st = null;
         remoteView = null;
         guestOverlayRound = 0;
@@ -2430,25 +2684,27 @@
     showIntro();
   }
 
-  async function joinRoom() {
+  async function joinRoom(opts = {}) {
     if (connecting) return;
 
-    const code = ($('joinCode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+    const resume = !!opts.resume;
+    const code = String(opts.code || $('joinCode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
     $('joinCode').value = code;
     if (code.length !== 5) {
       $('roomHint').textContent = 'A room code is 5 letters or digits.';
       return;
     }
 
-    const name = cleanName($('roomName').value) || 'Guest';
+    const name = cleanName(opts.name || $('roomName').value) || 'Guest';
     net.name = name;
+    net.clientId = getClientId();
     setSave(SAVE.name, name);
     $('roomName').value = name;
 
     connecting = true;
     $('hostBtn').disabled = true;
     $('joinBtn').disabled = true;
-    $('roomHint').textContent = 'Connecting to room ' + code + '…';
+    $('roomHint').textContent = (resume ? 'Rejoining room ' : 'Connecting to room ') + code + '…';
 
     let Peer;
     try {
@@ -2476,6 +2732,9 @@
     net.code = code;
     net.meId = 'me';
     net.started = false;
+    net.reconnecting = false;
+    net.leaving = false;
+    net.hostClosed = false;
     net.scores = {};
     net.conns.clear();
     st = null;
@@ -2495,9 +2754,10 @@
       failJoin('Room ' + code + ' was not found. Check the code and try again.');
     }, 14000);
 
-    conn.on('open', () => safeSend(conn, { t: 'join', name }));
+    const sendJoin = () => safeSend(conn, { t: 'join', name, clientId: net.clientId });
+    conn.on('open', sendJoin);
     conn.on('data', msg => {
-      if (!msg || typeof msg !== 'object') return;
+      if (!msg || typeof msg !== 'object' || net.conn !== conn) return;
       if (!joined && msg.t === 'welcome') {
         joined = true;
         clearTimeout(failTimer);
@@ -2506,22 +2766,147 @@
     });
     conn.on('close', () => {
       clearTimeout(failTimer);
-      if (net.role === 'guest') hostGone();
+      if (net.conn !== conn) return;
+      if (net.role !== 'guest' || net.leaving || net.hostClosed) return;
+      if (!joined) {
+        failJoin('Room ' + code + ' was not found.');
+        return;
+      }
+      scheduleReconnect();
     });
     conn.on('error', () => {
+      if (net.conn !== conn) return;
       if (!joined) {
         clearTimeout(failTimer);
         failJoin('Room ' + code + ' was not found.');
+      } else {
+        scheduleReconnect();
       }
     });
     peer.on('error', err => {
+      if (net.peer !== peer || net.role !== 'guest' || net.leaving || net.hostClosed) return;
       if (!joined && err && err.type === 'peer-unavailable') {
         clearTimeout(failTimer);
         try { peer.destroy(); } catch { /* gone */ }
         failJoin('Room ' + code + ' was not found.');
+      } else if (joined) {
+        scheduleReconnect();
       }
     });
-    peer.on('disconnected', () => { try { peer.reconnect(); } catch { /* gone */ } });
+    peer.on('disconnected', () => {
+      if (net.peer !== peer || net.role !== 'guest' || net.leaving || net.hostClosed) return;
+      if (net.conn && net.conn.open) { try { peer.reconnect(); } catch { /* gone */ } }
+      else scheduleReconnect();
+    });
+    peer.on('close', () => {
+      if (net.peer === peer && net.role === 'guest' && !net.leaving && !net.hostClosed) scheduleReconnect();
+    });
+  }
+
+  function scheduleReconnect() {
+    if (net.role !== 'guest' || net.leaving || net.hostClosed || net.reconnecting) return;
+    net.reconnecting = true;
+    net.reconnectAttempt = 0;
+    net.reconnectStartedAt = Date.now();
+    flash('Connection lost — reconnecting to your seat…');
+    if (net.started) $('roomState').textContent = 'Reconnecting…';
+    attemptReconnect();
+  }
+
+  function retryReconnect() {
+    if (!net.reconnecting || net.role !== 'guest' || net.leaving || net.hostClosed) return;
+    if (Date.now() - net.reconnectStartedAt >= RECONNECT_GRACE || net.reconnectAttempt >= RECONNECT_TRIES) {
+      net.reconnecting = false;
+      clearSession();
+      hostGone('Could not reconnect in time. Your seat may now be a bot.');
+      return;
+    }
+    if (net.reconnectTimer) clearTimeout(net.reconnectTimer);
+    const delay = Math.min(4000, 500 * net.reconnectAttempt);
+    net.reconnectTimer = setTimeout(attemptReconnect, delay);
+  }
+
+  async function attemptReconnect() {
+    if (!net.reconnecting || net.role !== 'guest' || net.leaving || net.hostClosed) return;
+    net.reconnectAttempt++;
+
+    if (net.conn) { try { net.conn.close(); } catch { /* gone */ } net.conn = null; }
+    if (net.peer) { try { net.peer.destroy(); } catch { /* gone */ } net.peer = null; }
+
+    let Peer;
+    try { Peer = await loadPeer(); } catch { retryReconnect(); return; }
+    if (!net.reconnecting) return;
+
+    const peer = new Peer();
+    net.peer = peer;
+    const ready = await new Promise(resolve => {
+      const timer = setTimeout(() => resolve(false), 8000);
+      peer.once('open', () => { clearTimeout(timer); resolve(true); });
+      peer.once('error', () => { clearTimeout(timer); resolve(false); });
+    });
+    if (!ready) {
+      try { peer.destroy(); } catch { /* gone */ }
+      net.peer = null;
+      retryReconnect();
+      return;
+    }
+    if (!net.reconnecting) {
+      try { peer.destroy(); } catch { /* gone */ }
+      return;
+    }
+
+    const conn = peer.connect(ROOM_PREFIX + net.code, { reliable: true });
+    net.conn = conn;
+    let opened = false;
+    const openTimer = setTimeout(() => {
+      if (opened) return;
+      try { conn.close(); } catch { /* gone */ }
+      try { peer.destroy(); } catch { /* gone */ }
+      net.conn = null;
+      net.peer = null;
+      retryReconnect();
+    }, 8000);
+
+    conn.on('open', () => {
+      opened = true;
+      clearTimeout(openTimer);
+      safeSend(conn, { t: 'join', name: net.name, clientId: net.clientId });
+    });
+    conn.on('data', msg => {
+      if (!msg || typeof msg !== 'object' || net.conn !== conn) return;
+      if (msg.t === 'welcome') {
+        clearTimeout(openTimer);
+        net.reconnecting = false;
+        net.reconnectAttempt = 0;
+        if (net.reconnectTimer) { clearTimeout(net.reconnectTimer); net.reconnectTimer = null; }
+      }
+      onGuestData(msg);
+    });
+    conn.on('close', () => {
+      clearTimeout(openTimer);
+      if (net.conn !== conn) return;
+      if (net.reconnecting) retryReconnect();
+      else if (net.role === 'guest' && !net.leaving && !net.hostClosed) scheduleReconnect();
+    });
+    conn.on('error', () => {
+      clearTimeout(openTimer);
+      if (net.conn !== conn) return;
+      if (net.reconnecting) retryReconnect();
+      else if (net.role === 'guest' && !net.leaving && !net.hostClosed) scheduleReconnect();
+    });
+    peer.on('error', () => {
+      if (net.peer !== peer) return;
+      clearTimeout(openTimer);
+      if (net.reconnecting) {
+        try { peer.destroy(); } catch { /* gone */ }
+        retryReconnect();
+      } else if (net.role === 'guest' && !net.leaving && !net.hostClosed) {
+        scheduleReconnect();
+      }
+    });
+    peer.on('disconnected', () => {
+      if (net.reconnecting) { try { peer.reconnect(); } catch { /* gone */ } }
+    });
   }
 
   function onGuestData(msg) {
@@ -2529,21 +2914,32 @@
 
     if (msg.t === 'welcome') {
       connecting = false;
-      net.phase = 'lobby';
       net.code = msg.code || net.code;
       net.meId = msg.youId || net.meId;
+      net.started = !!msg.started;
+      net.phase = net.started ? 'playing' : 'lobby';
+      net.reconnecting = false;
+      if (net.reconnectTimer) { clearTimeout(net.reconnectTimer); net.reconnectTimer = null; }
       lobby.players = Array.isArray(msg.players) ? msg.players : [];
       lobby.bots = Number.isFinite(msg.bots) ? msg.bots : 0;
+      saveSession(net.code, net.name);
 
       $('roomTitle').textContent = 'Room ' + net.code;
       $('roomNote').textContent = 'Chat while you wait. The host deals when everyone is in.';
-      $('roomModal').classList.add('show');
       $('roomSetup').hidden = true;
-      $('lobby').hidden = false;
-      $('roomHint').textContent = '';
-      renderLobby();
-      addSystem(`Joined room ${net.code}. Say hello in chat!`);
-      flash('Joined room ' + net.code + '.');
+      if (net.started) {
+        $('roomModal').classList.remove('show');
+        hideOverlay();
+        flash(msg.reconnected ? 'Reconnected — your seat is back.' : 'Joined room ' + net.code + '.');
+        addSystem(msg.reconnected ? 'Reconnected to your seat.' : `Joined room ${net.code}. Say hello in chat!`);
+      } else {
+        $('roomModal').classList.add('show');
+        $('lobby').hidden = false;
+        $('roomHint').textContent = '';
+        renderLobby();
+        flash(msg.reconnected ? 'Reconnected to room ' + net.code + '.' : 'Joined room ' + net.code + '.');
+        addSystem(msg.reconnected ? 'Reconnected to the lobby.' : `Joined room ${net.code}. Say hello in chat!`);
+      }
       return;
     }
 
@@ -2567,8 +2963,10 @@
     }
 
     if (msg.t === 'chat') {
-      if (msg.system) addChat({ system: true, text: cleanChat(msg.text) });
-      else addChat({ from: cleanName(msg.from) || 'Guest', text: cleanChat(msg.text) });
+      const text = cleanChat(msg.text);
+      if (!text) return;
+      if (msg.system === true) addChat({ system: true, text });
+      else addChat({ from: cleanName(msg.from) || 'Host', text });
       return;
     }
 
@@ -2577,7 +2975,11 @@
       return;
     }
 
-    if (msg.t === 'closed') hostGone();
+    if (msg.t === 'closed') {
+      net.hostClosed = true;
+      clearSession();
+      hostGone('The host closed the room.');
+    }
   }
 
   function applyView(view) {
@@ -2585,7 +2987,10 @@
     remoteView = view;
     net.started = true;
     net.phase = 'playing';
+    net.reconnecting = false;
+    if (net.reconnectTimer) { clearTimeout(net.reconnectTimer); net.reconnectTimer = null; }
     $('roomModal').classList.remove('show');
+    if (!view.over) hideOverlay();
 
     if (view.over) {
       if (guestOverlayRound !== view.round) {
@@ -2616,16 +3021,24 @@
   }
 
   function leaveRoom() {
+    net.leaving = true;
     if (net.role === 'host') {
       net.conns.forEach(conn => safeSend(conn, { t: 'closed' }));
     } else if (net.role === 'guest' && net.conn) {
       safeSend(net.conn, { t: 'bye' });
     }
+    clearSession();
     resetToSolo();
     showIntro();
   }
 
   function resetToSolo() {
+    net.leaving = true;
+    net.reconnecting = false;
+    net.hostClosed = true;
+    if (net.reconnectTimer) { clearTimeout(net.reconnectTimer); net.reconnectTimer = null; }
+    clearDropTimers();
+    clearSession();
     teardownNet();
     net.role = 'solo';
     net.phase = 'solo';
@@ -2633,6 +3046,7 @@
     net.meId = 'me';
     net.started = false;
     net.scores = {};
+    net.reconnectAttempt = 0;
     st = null;
     remoteView = null;
     guestOverlayRound = 0;
@@ -2646,15 +3060,17 @@
     $('roomSetup').hidden = false;
     $('lobby').hidden = true;
     $('chatUnread').hidden = true;
+    net.leaving = false;
+    net.hostClosed = false;
     buildRound(soloPool());
   }
 
-  function hostGone() {
+  function hostGone(text) {
     resetToSolo();
     setOverlay({
       ico: '📡',
       title: 'Room closed',
-      text: 'The host disconnected, so the table closed. Start a solo round, or open your own room and invite friends.',
+      text: text || 'The host disconnected, so the table closed. Start a solo round, or open your own room and invite friends.',
       btn: '▶ Play solo',
       onClick: () => { hideOverlay(); startTurn(); },
       statsHTML: `<div><b>${stats.wins}</b><span>wins</span></div><div><b>${stats.games}</b><span>rounds</span></div>`
@@ -2668,24 +3084,26 @@
       text: cleanChat(message.text),
       system: !!message.system
     };
-    if (!entry.system && !entry.text) return;
+    if (!entry.text) return;
     chat.push(entry);
-    if (chat.length > 80) chat.shift();
+    if (chat.length > CHAT_HISTORY) chat.shift();
     if (!chatOpen && !entry.system && entry.from !== net.name) unread += 1;
     renderChat();
   }
 
   function addSystem(text) {
-    addChat({ system: true, text });
+    const line = cleanChat(text);
+    if (!line) return;
+    addChat({ system: true, text: line });
     if (net.role === 'host') {
-      net.conns.forEach(conn => safeSend(conn, { t: 'chat', system: true, text }));
+      joinedConns().forEach(conn => safeSend(conn, { t: 'chat', system: true, text: line }));
     }
   }
 
   function renderChat() {
     const log = $('chatLog');
     log.innerHTML = '';
-    chat.slice(-60).forEach(message => {
+    chat.slice(-CHAT_RENDER).forEach(message => {
       const row = document.createElement('div');
       row.className = 'cc-msg'
         + (message.system ? ' sys' : '')
@@ -2739,8 +3157,11 @@
   }
 
   function hostChat(from, text) {
-    addChat({ from, text });
-    net.conns.forEach(conn => safeSend(conn, { t: 'chat', from, text }));
+    const line = cleanChat(text);
+    if (!line) return;
+    const who = cleanName(from) || 'Host';
+    addChat({ from: who, text: line });
+    joinedConns().forEach(conn => safeSend(conn, { t: 'chat', from: who, text: line }));
   }
 
   /* ---------- wiring ---------- */
@@ -2818,6 +3239,7 @@
 
   /* ---------- boot ---------- */
   net.name = cleanName(getSave(SAVE.name)) || 'You';
+  net.clientId = getClientId();
   $('roomName').value = net.name === 'You' ? '' : net.name;
   $('rivalsSel').value = String(rivals);
   $('roomBots').value = '2';
@@ -2828,10 +3250,17 @@
 
   const invited = (new URLSearchParams(location.search).get('room') || '')
     .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+  const savedRoom = readSession();
   if (invited.length === 5) {
     openRooms();
     $('joinCode').value = invited;
     $('roomHint').textContent = `You were invited to room ${invited}. Add a name, then join.`;
+  } else if (savedRoom) {
+    openRooms();
+    $('joinCode').value = savedRoom.code;
+    $('roomName').value = savedRoom.name || '';
+    $('roomHint').textContent = `Rejoining room ${savedRoom.code}…`;
+    joinRoom({ code: savedRoom.code, name: savedRoom.name, resume: true });
   }
 })();
 </script>
